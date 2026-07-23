@@ -1,0 +1,21 @@
+# Secrets — never commit
+credentials/
+service_account.json
+.Renviron
+.httr-oauth
+
+# R / RStudio session detritus
+.Rproj.user
+.Rhistory
+.RData
+.Rdata
+.Ruserdata
+*.Rproj
+.quarto
+
+# OS junk
+.DS_Store
+
+# Local data caches (not source)
+data/api_samples_pl/
+data/api_cache/

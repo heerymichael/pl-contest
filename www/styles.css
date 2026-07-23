@@ -1,0 +1,1872 @@
+/* World Cup 2026 Challenge — visual identity v2 (single-font edition)
+ *
+ * Single canonical CSS file. No inline style="..." attributes in R code.
+ * Single font: Plus Jakarta Sans, used at weights 400/500/700/800 with
+ * letter-spacing and uppercase tricks for display labels. Tabular numerals
+ * everywhere. Country flag icons via www/flags/{iso}.svg, mapped in
+ * R/flags.R.
+ */
+
+/* --- Palette and tokens ------------------------------------------------ */
+
+:root {
+  --wc-coral:        #FF3D5C;
+  --wc-coral-dark:   #E62A48;
+  --wc-cobalt:       #1B3FE5;
+  --wc-lime:         #BFE82E;
+  --wc-green:        #1E8A45;
+  --wc-yellow:       #F2E812;
+  --wc-purple:       #6B3FE3;
+  --wc-ink:          #0F1419;
+  --wc-cream:        #F5F1E8;
+  --wc-white:        #FFFFFF;
+
+  --wc-panel-dark:         #0F1419;
+  --wc-panel-dark-inner:   #1A1F26;
+  --wc-panel-dark-divider: #2A2F36;
+
+  --wc-text:         #0F1419;
+  --wc-text-muted:   #555555;
+  --wc-text-quiet:   #888888;
+  --wc-border-row:   #F0F0F0;
+  --wc-border-hairline: rgba(15, 20, 25, 0.10);
+
+  --wc-shadow-light: 0 1px 2px rgba(15, 20, 25, 0.04), 0 8px 24px rgba(15, 20, 25, 0.06);
+  --wc-shadow-panel: 0 1px 2px rgba(15, 20, 25, 0.04), 0 12px 32px rgba(15, 20, 25, 0.08);
+  --wc-shadow-dark:  0 1px 2px rgba(15, 20, 25, 0.04), 0 12px 32px rgba(15, 20, 25, 0.18);
+
+  --wc-radius-sm:    3px;
+  --wc-radius-md:    6px;
+  --wc-radius-lg:    8px;
+
+  --wc-font:         'Plus Jakarta Sans', sans-serif;
+}
+
+/* --- Base --------------------------------------------------------------- */
+
+body {
+  font-family: var(--wc-font);
+  background: var(--wc-cream);
+  color: var(--wc-text);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url("wc26-banner.webp") center/cover no-repeat;
+  filter: blur(120px);
+  transform: rotate(-8deg) scale(1.4);
+  opacity: 0.45;
+  z-index: -1;
+  pointer-events: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.015em;
+}
+
+/* --- Layout containers -------------------------------------------------- */
+
+.landing-container {
+  max-width: 500px;
+  margin: 100px auto;
+  text-align: center;
+}
+
+.form-card {
+  max-width: 500px;
+  margin: 60px auto;
+  padding: 30px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.view {
+  padding: 0 30px;
+}
+
+.view-narrow {
+  max-width: 800px;
+}
+
+/* --- Landing (vestigial — modal flow has replaced this) ---------------- */
+
+.landing-title {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 40px;
+  letter-spacing: -0.025em;
+}
+
+.btn-landing {
+  padding: 20px;
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+/* --- Form layout helpers ------------------------------------------------ */
+
+.form-actions {
+  margin-top: 20px;
+}
+
+.btn-inline {
+  margin-left: 10px;
+}
+
+.form-message {
+  margin-top: 15px;
+}
+
+/* --- Status text -------------------------------------------------------- */
+
+.register-error {
+  color: var(--wc-coral);
+  font-weight: 500;
+}
+
+.register-success {
+  color: #1FA85A;
+  font-weight: 500;
+}
+
+/* --- Countdown banner (sits at the very top, above nav) -------------- */
+
+.countdown-banner {
+  width: 100%;
+  padding: 12px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.countdown-banner-message {
+  display: inline-block;
+}
+
+.countdown-banner-timer {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 4px 12px;
+  border-radius: var(--wc-radius-sm);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.banner-neutral {
+  background: var(--wc-cobalt);
+  color: var(--wc-white);
+}
+
+.banner-warn {
+  background: var(--wc-yellow);
+  color: var(--wc-ink);
+}
+
+.banner-warn .countdown-banner-timer {
+  background: rgba(15, 20, 25, 0.15);
+}
+
+.banner-urgent {
+  background: var(--wc-coral);
+  color: var(--wc-white);
+}
+
+.banner-locked {
+  background: var(--wc-ink);
+  color: var(--wc-white);
+  justify-content: center;
+}
+
+.banner-notice {
+  justify-content: center;
+  text-align: center;
+}
+
+/* --- Navigation header (sits below the banner) -------------------------- */
+
+.nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 30px;
+  background: var(--wc-ink);
+  color: var(--wc-white);
+  border-bottom: 4px solid var(--wc-yellow);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.nav-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-bar-menu {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-left: 28px;
+}
+
+.nav-hamburger {
+  display: none;
+  background: transparent;
+  color: var(--wc-white);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--wc-radius-sm);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.nav-bar-left {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+}
+
+.nav-bar-left strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+}
+
+.nav-brand-chip {
+  background: var(--wc-yellow);
+  color: var(--wc-ink);
+  padding: 3px 9px;
+  border-radius: var(--wc-radius-sm);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.nav-brand-logo {
+  height: 63px;
+  width: auto;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.nav-bar-brand strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.015em;
+}
+
+.nav-brand-text {
+  display: inline-block;
+  line-height: 1.05;
+}
+
+.nav-bar-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.nav-bar a,
+.nav-bar a:visited {
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  font-size: 20px;
+}
+
+.nav-bar a:hover,
+.nav-bar a:focus {
+  color: var(--wc-yellow);
+}
+
+.nav-bar a.nav-link-active,
+.nav-bar a.nav-link-active:visited {
+  color: var(--wc-yellow);
+  font-weight: 700;
+}
+
+.nav-bar .btn {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+.nav-bar .btn-default {
+  background: transparent;
+  color: var(--wc-white);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.nav-bar .btn-primary {
+  background: var(--wc-coral);
+  color: var(--wc-white);
+  border: 1px solid var(--wc-coral);
+}
+
+.nav-bar .btn:hover {
+  filter: brightness(1.1);
+}
+
+/* --- Lineup creator: page header --------------------------------------- */
+
+.lineup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 22px;
+}
+
+.lineup-header h2 {
+  font-size: 44px;
+  font-weight: 800;
+  margin: 0;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+.lineup-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.lineup-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--wc-purple);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+/* --- Lineup creator: panels -------------------------------------------- */
+
+.panel-card {
+  background: var(--wc-white);
+  border: 1px solid var(--wc-border-hairline);
+  border-radius: var(--wc-radius-lg);
+  padding: 22px;
+  box-shadow: var(--wc-shadow-panel);
+}
+
+.panel-card h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.panel-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.panel-card-header h3 {
+  margin-bottom: 0;
+}
+
+.pool-toggle-inline .form-group,
+.pool-toggle-inline .checkbox {
+  margin: 0;
+}
+
+.pool-toggle-inline label {
+  font-size: 13px;
+  color: var(--wc-text-muted);
+  font-weight: 500;
+}
+
+.panel-card-dark {
+  background: var(--wc-panel-dark);
+  color: var(--wc-white);
+  border: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--wc-shadow-dark);
+}
+
+/* Coral corner swoop — quarter-circle pie slice via inline SVG. */
+.panel-card-dark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 72px;
+  height: 72px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'><path d='M 0 0 L 72 0 L 72 72 A 72 72 0 0 0 0 0 Z' fill='%23FF3D5C'/></svg>");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.panel-card-dark h3 {
+  color: var(--wc-white);
+}
+
+/* --- Player pool rows (stacked: name above meta) ----------------------- */
+
+.player-list-scroll {
+  max-height: 600px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--wc-border-row);
+}
+
+.player-row-active {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .player-row-active:hover {
+    background: #FBFCE6;
+  }
+}
+
+.player-row-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.player-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player-row-right {
+  display: flex;
+  align-items: center;
+}
+
+.player-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.player-meta {
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  color: var(--wc-text-quiet);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.player-disabled-label {
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--wc-text-quiet);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.player-disabled-label-active {
+  color: var(--wc-coral);
+}
+
+.remove-btn {
+  font-size: 12px;
+}
+
+/* Pool pagination footer — "Showing N of M players · Show 30 more" */
+.pool-pagination-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 4px 6px;
+}
+
+.pool-pagination-count {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--wc-text-quiet);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pool-show-more-btn {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: var(--wc-text-quiet);
+}
+
+/* --- Roster rows: callout boxes inside the dark panel ----------------- */
+
+.roster-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--wc-white);
+  font-size: 14px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: var(--wc-radius-sm);
+}
+
+.roster-row-text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.roster-position {
+  font-weight: 800;
+  color: var(--wc-lime);
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  text-transform: uppercase;
+  display: inline-block;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.roster-name {
+  font-weight: 600;
+}
+
+.roster-team {
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 4px;
+}
+
+.roster-row .remove-btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+}
+
+.roster-row .remove-btn:hover {
+  color: var(--wc-white);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Filled-row action buttons (Replace + Remove). Replace is mobile-only;
+   on desktop it's hidden, only Remove shows. */
+.roster-row-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.roster-row .replace-btn {
+  display: none;   /* desktop hides Replace; the mobile @media below shows it */
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+}
+
+.roster-row .replace-btn:hover {
+  color: var(--wc-white);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Pool back-to-lineup button (mobile-only). Hidden on desktop. */
+.pool-back-btn {
+  display: none;
+  margin-bottom: 14px;
+  font-size: 13px;
+  padding: 6px 12px;
+  font-weight: 500;
+}
+
+/* --- Roster: positional groups + empty slot styling ------------------ */
+
+.roster-group {
+  margin-bottom: 32px;   /* spacing between positional groups */
+}
+
+.roster-group:last-child {
+  margin-bottom: 0;
+}
+
+.roster-group-header {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.70);
+  margin-bottom: 10px;
+}
+
+.roster-row-empty-required {
+  /* Required empties inherit the solid fill from .roster-row.
+     They read as "a slot waiting to be filled". */
+}
+
+.roster-row-empty-optional {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.22);
+  padding: 5px 12px;        /* visibly slimmer than filled / required */
+}
+
+.roster-row-empty-optional .roster-position {
+  color: rgba(255, 255, 255, 0.32);   /* mute the lime accent away */
+}
+
+.roster-row-empty-optional .roster-slot-placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.roster-row-empty .roster-position {
+  color: rgba(191, 232, 46, 0.45);   /* dimmed lime */
+}
+
+.roster-row-empty .roster-slot-placeholder {
+  font-weight: 500;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.38);
+  margin-left: 4px;
+}
+
+.roster-optional-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.40);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* --- Lineup creator: name input + submit row --------------------------- */
+
+.entry-name-row {
+  margin-bottom: 18px;
+}
+
+.entry-name-row input[type="text"] {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid rgba(15, 20, 25, 0.12);
+  background: var(--wc-white);
+  font-size: 14px;
+  border-radius: var(--wc-radius-md);
+  box-shadow: var(--wc-shadow-light);
+  box-sizing: border-box;
+  font-family: var(--wc-font);
+}
+
+.entry-name-row input[type="text"]:focus {
+  outline: none;
+  border-color: var(--wc-coral);
+  box-shadow: var(--wc-shadow-light), 0 0 0 3px rgba(255, 61, 92, 0.15);
+}
+
+.submit-row {
+  margin-top: 14px;
+}
+
+.submit-row .btn-primary {
+  background: var(--wc-coral);
+  border-color: var(--wc-coral);
+  color: var(--wc-white);
+  font-weight: 700;
+  padding: 12px;
+  font-size: 14px;
+  border-radius: var(--wc-radius-md);
+  letter-spacing: -0.01em;
+}
+
+.submit-row .btn-primary:hover,
+.submit-row .btn-primary:focus {
+  background: var(--wc-coral-dark);
+  border-color: var(--wc-coral-dark);
+  color: var(--wc-white);
+}
+
+.submit-row .btn[disabled],
+.submit-row .btn-primary[disabled] {
+  background: var(--wc-panel-dark-divider);
+  border-color: var(--wc-panel-dark-divider);
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 1;
+  font-weight: 600;
+  cursor: not-allowed;
+}
+
+/* Pick-count / disabled-reason line above the submit button.
+   Lives inside the dark lineup panel. */
+.submit-status {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.submit-status-incomplete {
+  color: rgba(255, 255, 255, 0.60);
+}
+
+.submit-status-complete {
+  color: var(--wc-lime);
+}
+
+/* --- Lineup picker action row (undo / reset) -------------------------- */
+
+.lineup-picker-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.lineup-picker-actions .btn {
+  flex: 1;
+  background: transparent;
+  color: var(--wc-white);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  padding: 7px;
+}
+
+.lineup-picker-actions .btn:hover {
+  color: var(--wc-white);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* --- Auth modals ------------------------------------------------------- */
+
+.modal-footer .btn-link {
+  margin-right: auto;
+  padding-left: 0;
+}
+
+/* --- My Lineups list -------------------------------------------------- */
+
+.lineup-list {
+  margin-bottom: 30px;
+}
+
+.lineup-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  border: 1px solid var(--wc-border-hairline);
+  border-radius: var(--wc-radius-md);
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: var(--wc-white);
+  box-shadow: var(--wc-shadow-light);
+}
+
+.lineup-list-row:hover {
+  background: #f8f9fa;
+}
+
+.lineup-list-row-selected {
+  background: #e8f0fe;
+  border-color: var(--wc-cobalt);
+}
+
+.lineup-list-row-selected:hover {
+  background: #e8f0fe;
+}
+
+.lineup-list-name {
+  font-weight: 500;
+}
+
+.lineup-list-date {
+  color: var(--wc-text-muted);
+  font-size: 14px;
+}
+
+/* --- Embedded lineup editor area ------------------------------------- */
+
+.lineup-editor-area {
+  margin-top: 10px;
+}
+
+.lineup-editor {
+  border-top: 1px solid var(--wc-border-hairline);
+  padding-top: 20px;
+}
+
+/* --- Locked view (Build a Lineup replacement) ------------------------ */
+
+.locked-message {
+  background: #f8f9fa;
+  border: 1px solid var(--wc-border-hairline);
+  border-radius: var(--wc-radius-lg);
+  padding: 30px;
+  text-align: center;
+  color: var(--wc-text-muted);
+}
+
+.locked-message p {
+  margin: 8px 0;
+}
+
+/* --- Locked notice (My Lineups editor) ------------------------------- */
+
+.locked-notice {
+  background: var(--wc-ink);
+  color: var(--wc-white);
+  padding: 10px 15px;
+  border-radius: var(--wc-radius-md);
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+/* --- Country flag icons ---------------------------------------------- */
+
+.flag-icon {
+  display: inline-block;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(15, 20, 25, 0.15);
+  vertical-align: middle;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+
+.flag-icon-sm { width: 14px; height: 14px; }
+.flag-icon-md { width: 18px; height: 18px; }
+.flag-icon-lg { width: 22px; height: 22px; }
+
+.panel-card-dark .flag-icon {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.flag-option {
+  display: flex;
+  align-items: center;
+}
+
+/* Team filter dropdown — more breathing room between options and
+   heavier country-name text. Scoped to the dropdown list so it
+   doesn't affect the selected pill in the input box. */
+.selectize-dropdown .flag-option {
+  padding: 6px 4px;
+  font-weight: 600;
+  color: var(--wc-text);
+}
+/* --- Mobile (≤ 768px) ------------------------------------------------- */
+
+@media (max-width: 768px) {
+
+  /* Container padding tightening */
+  .view              { padding: 0 16px; }
+  .nav-bar           { padding: 12px 16px; }
+  .countdown-banner  { padding: 10px 16px; }
+  .panel-card        { padding: 16px; }
+
+  /* Display type scaling */
+  .lineup-header h2  { font-size: 28px; }
+  .landing-title     { font-size: 28px; }
+
+  /* Nav — hamburger pattern */
+  .nav-hamburger     { display: inline-block; }
+
+  .nav-bar-menu {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+    margin-top: 12px;
+    gap: 12px;
+  }
+  .nav-bar.nav-bar-open .nav-bar-menu {
+    display: flex;
+  }
+  .nav-bar-left,
+  .nav-bar-right {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .nav-bar-right .btn { width: 100%; }
+  .nav-bar a          { padding: 6px 0; }
+
+  /* Lineup creator — stack panels, Your Lineup first.
+     Bootstrap's column(7) (pool) renders before column(5) (lineup) in
+     source order. Flex 'order' on the inner .panel-card lets us flip
+     them on mobile without restructuring the R code.
+     NOTE: scoped with '>' to the picker's DIRECT child row only —
+     the unscoped version also matched the nested filter fluidRow
+     inside the pool panel, scrambling the filter order and hiding
+     the Position dropdown in the mobile pool view. */
+  .lineup-picker > .row {
+    display: flex;
+    flex-direction: column;
+  }
+  .lineup-picker > .row > [class*="col-"] {
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .lineup-picker > .row > [class*="col-"]:nth-child(1) { order: 2; }
+  .lineup-picker > .row > [class*="col-"]:nth-child(2) { order: 1; margin-bottom: 18px; }
+
+  /* Mobile picker view toggle.
+     The picker root carries .picker-mobile-lineup or .picker-mobile-pool;
+     JS swaps it without re-rendering. On mobile only, this hides the
+     panel that isn't active. Desktop ignores both classes (both panels
+     stay visible). */
+  .lineup-picker.picker-mobile-lineup > .row > [class*="col-"]:nth-child(1) {
+    display: none;   /* hide pool when on the lineup view */
+  }
+  .lineup-picker.picker-mobile-pool > .row > [class*="col-"]:nth-child(2) {
+    display: none;   /* hide lineup when on the pool view */
+  }
+  /* Entry-name input belongs to the lineup view — hide while picking. */
+  .lineup-picker.picker-mobile-pool .entry-name-row {
+    display: none;
+  }
+
+  /* Show the mobile-only controls. Replace is retired — its base rule
+     keeps it display:none everywhere, so filled rows show Remove only. */
+  .lineup-picker .pool-back-btn        { display: inline-block; }
+
+  /* Empty slots are tappable on mobile — give them a pointer cursor and
+     a subtle "ready to be filled" affordance. */
+  .roster-row-empty {
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .roster-row-empty:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+  }
+  .roster-row-empty-optional {
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .roster-row-empty-optional:hover {
+      border-color: rgba(255, 255, 255, 0.45);
+    }
+  }
+
+  /* Filter row inside the pool — stack to single column */
+  .panel-card .row > [class*="col-"] {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Player pool scroll height — taller relative to viewport */
+  .player-list-scroll {
+    max-height: 50vh;
+  }
+
+  /* Touch targets */
+  .player-row,
+  .roster-row,
+  .lineup-list-row {
+    min-height: 44px;
+  }
+
+  /* My Lineups list — stack name and date */
+  .lineup-list-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  /* Lineup header */
+  .lineup-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+/* --- Narrow phones (≤ 480px) ----------------------------------------- */
+
+@media (max-width: 480px) {
+  .lineup-header h2  { font-size: 24px; }
+
+  /* Countdown banner — stack message and timer */
+  .countdown-banner {
+    flex-direction: column;
+    gap: 6px;
+    text-align: center;
+  }
+
+  /* Panel card header — wrap if cramped */
+  .panel-card-header {
+    flex-wrap: wrap;
+  }
+
+  /* Modals — tighter margins */
+  .modal-dialog {
+    margin: 10px;
+  }
+}
+
+/* --- Payment banner (My Lineups) ------------------------------------- */
+
+.payment-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: #F0F4FF;
+  border: 1px solid var(--wc-border-hairline);
+  border-radius: var(--wc-radius-md);
+  margin-bottom: 20px;
+}
+
+.payment-banner-text {
+  font-size: 14px;
+  color: var(--wc-text);
+}
+
+.payment-banner-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .payment-banner {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    gap: 10px;
+  }
+  .payment-banner-btn {
+    width: 100%;
+  }
+}
+
+/* --- Rules page -------------------------------------------------------- */
+/* Styled rules view (R/nav.R rules_view + helpers). Reuses lineup-header,
+   lineup-eyebrow, panel-card, and panel-card-dark; everything below is
+   rules-specific. */
+
+.rules-intro {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--wc-text-muted);
+  max-width: 560px;
+  margin-bottom: 24px;
+}
+
+.rules-section {
+  margin-bottom: 18px;
+}
+
+.rules-section-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wc-text-muted);
+  margin-bottom: 14px;
+}
+
+.panel-card-dark .rules-section-label {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+/* Roster chips (dark panel) */
+
+.rules-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.rules-chip {
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: var(--wc-radius-sm);
+  padding: 9px 14px;
+}
+
+.rules-chip-pos {
+  font-weight: 800;
+  color: var(--wc-lime);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rules-chip-value {
+  font-weight: 600;
+  font-size: 14px;
+  margin-left: 8px;
+}
+
+.rules-meta-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+/* Pills (round multipliers, prize splits) */
+
+.rules-pill-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.rules-pill-row:last-child {
+  margin-bottom: 0;
+}
+
+.rules-pill {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--wc-cream);
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+.rules-pill-accent {
+  color: var(--wc-purple);
+}
+
+.rules-pill-muted {
+  color: var(--wc-text-quiet);
+}
+
+.rules-pill-final {
+  background: var(--wc-yellow);
+  color: var(--wc-ink);
+}
+
+/* Lock-time chip */
+
+.rules-lock-chip {
+  display: inline-block;
+  background: var(--wc-ink);
+  color: var(--wc-white);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+/* Scoring tables — two-column grid of label/points rows */
+
+.rules-score-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 28px;
+  margin-bottom: 22px;
+}
+
+.rules-score-grid:last-child {
+  margin-bottom: 0;
+}
+
+.rules-score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--wc-border-row);
+  font-size: 13px;
+}
+
+.rules-score-col .rules-score-row:last-child {
+  border-bottom: none;
+}
+
+.rules-score-name {
+  font-weight: 600;
+}
+
+.rules-score-pts {
+  font-weight: 800;
+}
+
+/* Coral emphasis for negative scores and warnings */
+
+.rules-neg {
+  font-weight: 800;
+  color: var(--wc-coral);
+}
+
+/* Definition-style items (term + body) and plain body copy */
+
+.rules-item {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wc-text-muted);
+  margin-bottom: 9px;
+}
+
+.rules-item:last-child {
+  margin-bottom: 0;
+}
+
+.rules-term {
+  font-weight: 800;
+  color: var(--wc-text);
+}
+
+.rules-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--wc-text-muted);
+  margin: 0 0 14px;
+}
+
+.rules-body:last-child {
+  margin-bottom: 0;
+}
+
+.panel-card-dark .rules-body {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Teamstake payment button */
+
+.rules-pay-btn,
+.rules-pay-btn:visited {
+  display: inline-block;
+  background: var(--wc-coral);
+  border: 1px solid var(--wc-coral);
+  color: var(--wc-white);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: var(--wc-radius-md);
+}
+
+@media (hover: hover) {
+  .rules-pay-btn:hover,
+  .rules-pay-btn:focus {
+    background: var(--wc-coral-dark);
+    border-color: var(--wc-coral-dark);
+    color: var(--wc-white);
+    text-decoration: none;
+  }
+}
+
+/* Rules page — narrow phones (≤ 480px): scoring grid stacks to one
+   column; restore the divider on each column's last row except the
+   final one so the stacked list reads continuously. */
+
+@media (max-width: 480px) {
+  .rules-score-grid {
+    grid-template-columns: 1fr;
+  }
+  .rules-score-col .rules-score-row:last-child {
+    border-bottom: 1px solid var(--wc-border-row);
+  }
+  .rules-score-col:last-child .rules-score-row:last-child {
+    border-bottom: none;
+  }
+}
+/* --- Leaderboard -------------------------------------------------------- */
+/* R/leaderboard.R — ranked entries board (left) + selected entry's
+   roster in a dark panel (right). Reuses lineup-header, lineup-eyebrow,
+   panel-card, and panel-card-dark; everything below is board-specific. */
+
+.lb-status {
+  font-size: 14px;
+  color: var(--wc-text-muted);
+  margin: -10px 0 18px;
+}
+
+.lb-board-card {
+  padding: 14px 18px 8px;
+}
+
+/* "Includes matches up to" strip at the top of the board card —
+   built by lb_latest_match_strip() from the most recent ingested match. */
+.lb-latest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 10px;
+  padding: 8px 14px;
+  background: var(--wc-cream);
+  border-radius: 9px;
+}
+
+.lb-latest-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wc-text-quiet);
+}
+
+.lb-latest-match {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lb-latest .flag-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.lb-latest-score {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wc-text);
+}
+
+.lb-latest-date {
+  font-size: 11px;
+  color: var(--wc-text-quiet);
+}
+
+.lb-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr) 44px 54px 76px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--wc-border-row);
+}
+
+.lb-row:last-child {
+  border-bottom: none;
+}
+
+.lb-row-header {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wc-text-quiet);
+  border-bottom: 1px solid var(--wc-border-hairline);
+  padding-top: 2px;
+  padding-bottom: 8px;
+}
+
+.lb-row-click {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .lb-row-click:hover {
+    background: #FBFCE6;
+  }
+}
+
+.lb-row-selected,
+.lb-row-selected:hover {
+  background: #F6FADC;
+  box-shadow: inset 3px 0 0 var(--wc-lime);
+}
+
+.lb-rank {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.lb-live {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.lb-live-n {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--wc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-live-d {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wc-text-quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-manager {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-entry {
+  font-size: 13px;
+  color: var(--wc-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-pts {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-prize {
+  text-align: right;
+  font-weight: 500;
+  color: var(--wc-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-prize-paid {
+  color: var(--wc-green);
+  font-weight: 800;
+}
+
+.lb-prize-none {
+  color: #C4C4C4;
+  font-weight: 400;
+}
+
+/* Roster panel (dark) */
+
+.lb-roster-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 4px;
+}
+
+.lb-roster-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+}
+
+.lb-roster-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) repeat(5, 50px) 56px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--wc-panel-dark-divider);
+  font-size: 16px;
+}
+
+.lb-roster-row:last-child {
+  border-bottom: none;
+}
+
+.lb-roster-row-header {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  padding-bottom: 6px;
+}
+
+.lb-roster-stat {
+  text-align: right;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lb-roster-stat-pts {
+  font-weight: 800;
+  color: var(--wc-white);
+}
+
+.lb-roster-pos {
+  width: 40px;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Larger flags scoped to the roster and ownership tables only —
+   the player pool keeps its small flags. */
+.lb-roster-player .flag-icon,
+.lb-own-player .flag-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.lb-roster-player {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-roster-name {
+  display: block;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-roster-team {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Stacked identity column: name on top, flag + country code beneath,
+   both left-aligned against the avatar. The name owns the full column
+   width — this is also what keeps it visible on narrow phones. */
+.lb-roster-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lb-roster-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.lb-roster-sub .flag-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.lb-roster-sub .lb-roster-team {
+  font-size: 12px;
+}
+
+.lb-roster-empty {
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 0 4px;
+}
+
+/* Player avatars — circle-cropped headshots with a dark ring, falling
+   back to brand initials circles when no image exists in
+   www/headshots/{player_id}.png|jpg */
+
+.player-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--wc-ink);
+  flex-shrink: 0;
+  background: var(--wc-cream);
+}
+
+.player-avatar-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--wc-ink);
+}
+
+.panel-card-dark .player-avatar {
+  border-color: var(--wc-panel-dark-divider);
+}
+
+.panel-card-dark .player-avatar-initials {
+  background: var(--wc-panel-dark-inner);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Ownership card (light panel under the roster) */
+
+.lb-own-card {
+  margin-top: 14px;
+  padding: 18px 22px 10px;
+}
+
+.lb-own-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wc-purple);
+  margin-bottom: 4px;
+}
+
+.lb-own-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+
+.lb-own-filters {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  margin: 0 0 14px;
+}
+
+.lb-own-search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lb-own-search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--wc-text-quiet);
+  pointer-events: none;
+}
+
+.lb-own-search-input {
+  width: 100%;
+  padding: 11px 14px 11px 38px;
+  border: 1px solid rgba(15, 20, 25, 0.12);
+  background: var(--wc-white);
+  font-size: 14px;
+  border-radius: var(--wc-radius-md);
+  box-shadow: var(--wc-shadow-light);
+  box-sizing: border-box;
+  font-family: var(--wc-font);
+  color: var(--wc-ink);
+}
+
+.lb-own-search-input::placeholder {
+  color: var(--wc-text-quiet);
+}
+
+.lb-own-search-input:focus {
+  outline: none;
+  border-color: var(--wc-coral);
+  box-shadow: var(--wc-shadow-light), 0 0 0 3px rgba(255, 61, 92, 0.15);
+}
+
+.lb-own-pos-select {
+  flex: 0 0 auto;
+  width: 140px;
+  padding: 11px 34px 11px 14px;
+  border: 1px solid rgba(15, 20, 25, 0.12);
+  background-color: var(--wc-white);
+  font-size: 14px;
+  border-radius: var(--wc-radius-md);
+  box-shadow: var(--wc-shadow-light);
+  box-sizing: border-box;
+  font-family: var(--wc-font);
+  color: var(--wc-ink);
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.lb-own-pos-select:focus {
+  outline: none;
+  border-color: var(--wc-coral);
+  box-shadow: var(--wc-shadow-light), 0 0 0 3px rgba(255, 61, 92, 0.15);
+}
+
+.lb-own-empty {
+  padding: 16px 2px 8px;
+  color: var(--wc-text-quiet);
+  font-size: 14px;
+}
+
+.lb-own-empty p {
+  margin: 0;
+}
+
+.lb-own-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px 60px 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--wc-border-row);
+  font-size: 16px;
+}
+
+.lb-own-row-header {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wc-text-quiet);
+  border-bottom: 1px solid var(--wc-border-hairline);
+  padding-bottom: 8px;
+}
+
+.lb-own-player {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.lb-own-name {
+  display: block;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-own-team {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--wc-text-quiet);
+}
+
+/* Stacked identity column, mirroring the roster panel: name on top,
+   flag + country code beneath, left-aligned against the avatar. Keeps
+   the name readable at every width. */
+.lb-own-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lb-own-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.lb-own-sub .flag-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.lb-own-sub .lb-own-team {
+  font-size: 12px;
+}
+
+.lb-own-pos {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--wc-text-quiet);
+}
+
+.lb-own-count,
+.lb-own-pct {
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-own-pct {
+  color: var(--wc-text-muted);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  /* Bootstrap stacks the columns; give the roster panel breathing room */
+  .lb-roster-card {
+    margin-top: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lb-row {
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 36px 42px 56px;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .lb-entry {
+    font-size: 12px;
+  }
+
+  /* Narrow phones: drop the Min and Sh columns so player names keep
+     room — MP, G, A, and Pts remain. */
+  .lb-rs-min,
+  .lb-rs-shots {
+    display: none;
+  }
+  .lb-roster-row {
+    grid-template-columns: 32px minmax(0, 1fr) repeat(3, 38px) 48px;
+    gap: 6px;
+  }
+
+  .lb-roster-name,
+  .lb-own-name {
+    font-size: 15px;
+  }
+
+  .lb-own-row {
+    grid-template-columns: minmax(0, 1fr) 38px 50px 48px;
+    gap: 6px;
+  }
+
+  .player-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player-avatar-initials {
+    font-size: 14px;
+  }
+}
