@@ -351,8 +351,8 @@ rules_view <- function() {
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Payment"),
       p(class = "rules-body",
-        "Entries are paid via Teamstake. All entry monies are held by
-         Teamstake (an independent third party) for security — funds are not
+        "Entries are paid via Revolut. All entry monies are held by
+         Revolut (an independent third party) for security — funds are not
          held by the organiser. Payment status is updated manually by the
          admin, so there may be a short lag between paying and being marked
          as paid."),
@@ -360,7 +360,7 @@ rules_view <- function() {
         span(class = "rules-neg", "Unpaid entries at lock are void"),
         " — removed from the leaderboard, not eligible for prizes, and not
          counted toward the field size."),
-      teamstake_link(label = "Pay via Teamstake →",
+      payment_link(label = "Pay via Revolut →",
                      class = "btn rules-pay-btn")
     ),
     

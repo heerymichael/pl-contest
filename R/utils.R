@@ -1,4 +1,4 @@
-# Small utility helpers
+# Small utility helpers (pl-contest)
 library(shiny)
 library(shinycssloaders)
 
@@ -6,13 +6,16 @@ message(">>> SOURCED R/utils.R at ", format(Sys.time()))
 
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0) b else a
 
-# Teamstake — third-party payment provider for entry fees.
+# Revolut — entry fees are paid by direct Revolut transfer.
 # Single source of truth for the URL and the link's target/rel attrs.
-TEAMSTAKE_URL <- "https://teamstake.com/event/36636/invitation"
+#
+# !!! PLACEHOLDER — replace CHANGEME with the real revolut.me handle
+# before any deploy. The apply script's verification will remind you.
+REVOLUT_URL <- "https://revolut.me/CHANGEME"
 
-teamstake_link <- function(label = "Pay via Teamstake →", class = NULL) {
+payment_link <- function(label = "Pay via Revolut \u2192", class = NULL) {
   tags$a(
-    href   = TEAMSTAKE_URL,
+    href   = REVOLUT_URL,
     target = "_blank",
     rel    = "noopener noreferrer",
     class  = class,

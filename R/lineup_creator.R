@@ -1106,13 +1106,13 @@ lineup_picker_server_logic <- function(input, output, session,
         title = "Lineup submitted",
         tagList(
           p(paste0("Your lineup \"", name, "\" has been submitted.")),
-          p("Pay your entry fee on Teamstake to complete entry into the contest. ",
-            "Entry monies are held by Teamstake (an independent third party) — ",
+          p("Pay your entry fee on Revolut to complete entry into the contest. ",
+            "Entry monies are held by Revolut (an independent third party) — ",
             "funds are not held by the organiser, and the contest takes no rake.")
         ),
         footer = tagList(
           modalButton("Done"),
-          teamstake_link(label = "Pay via Teamstake →", class = "btn btn-primary")
+          payment_link(label = "Pay via Revolut →", class = "btn btn-primary")
         ),
         easyClose = TRUE
       ))

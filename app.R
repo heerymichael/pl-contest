@@ -12,6 +12,7 @@ source("R/nav.R")
 source("R/lineup_creator.R")
 source("R/my_lineups.R")
 source("R/scoring.R")
+source("R/bestball.R")
 source("R/leaderboard.R")
 source("R/auth_modals.R")
 source("R/utils.R")
@@ -195,7 +196,7 @@ server <- function(input, output, session) {
   
   output$page <- renderUI({
     user <- current_user()
-    username <- if (!is.null(user)) user$username else NULL
+    username <- if (!is.null(user)) user$display_name else NULL
     locked <- is_locked_reactive()
     app_shell_ui(username, view_state(), locked)
   })

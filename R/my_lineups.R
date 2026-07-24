@@ -19,8 +19,8 @@ my_lineups_view <- function() {
     div(
       class = "payment-banner",
       span(class = "payment-banner-text",
-           "Entries are paid separately via Teamstake."),
-      teamstake_link(label = "Pay via Teamstake →",
+           "Entries are paid separately via Revolut."),
+      payment_link(label = "Pay via Revolut →",
                      class = "btn btn-primary btn-sm payment-banner-btn")
     ),
     uiOutput("my_lineups_list"),
