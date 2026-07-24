@@ -735,7 +735,33 @@ lineup_picker_server_logic <- function(input, output, session,
                  p("This lineup has no players.")))
     }
     
-    do.call(tagList, groups)
+    # Club fade tracker: all 20 clubs, used ones highlighted. The fade
+    # count is structural (roster_total picks from one club each), so
+    # it's constant — 20 clubs minus 15 picks = 5 faded.
+    all_teams <- teams_data() |> arrange(short_code)
+    taken     <- unique(sp$team)
+    n_fade    <- max(0L, nrow(all_teams) - target_total)
+    
+    fade_chips <- lapply(seq_len(nrow(all_teams)), function(i) {
+      code <- all_teams$short_code[i]
+      tags$span(
+        class = paste("fade-chip",
+                      if (code %in% taken) "fade-chip-used" else ""),
+        code
+      )
+    })
+    
+    fade_tracker <- tags$div(
+      class = "fade-tracker",
+      tags$div(
+        class = "fade-tracker-header",
+        sprintf("Clubs used \u00b7 %d of %d \u2014 you fade %d",
+                length(taken), nrow(all_teams), n_fade)
+      ),
+      tags$div(class = "fade-tracker-chips", fade_chips)
+    )
+    
+    do.call(tagList, c(groups, list(fade_tracker)))
   })
   
   # Undo/Reset row: hidden entirely when locked
