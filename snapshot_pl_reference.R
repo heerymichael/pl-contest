@@ -4,17 +4,11 @@
 #   data/players_snapshot.rds  (from the `players` tab)
 #   data/teams_snapshot.rds    (from the `teams` tab)
 #
-# The Sheet remains the source of truth. Re-run this after ANY change
-# to the players or teams tabs (price refresh, transfer update, club
-# data fix), then restart the app.
+# Re-run after ANY change to the players or teams tabs, then restart
+# the app. Column-agnostic: reads all columns as character then
+# restores the known numeric types, so schema additions (first_name,
+# surname, is_active...) never require edits here.
 #
-# is_active: R/cache.R filters players on is_active == TRUE. The PL
-# players tab doesn't carry the column yet (all 580 are active), so it
-# is synthesised as TRUE here. When transfer handling lands, the column
-# moves into the tab proper (departing players get is_active = 0, never
-# deleted — player_id stability).
-#
-# Run in two steps per the auth pattern:
 #   source("R/sheets.R")
 #   source("snapshot_pl_reference.R")
 
@@ -23,13 +17,17 @@ library(googlesheets4)
 
 message(">>> snapshot_pl_reference — target Sheet: ", sheet_id())
 
-players <- read_sheet(sheet_id(), sheet = "players",
-                      col_types = "iccccdc")
-message("    [snapshot] read players tab — ", nrow(players), " rows")
+players <- read_sheet(sheet_id(), sheet = "players", col_types = "c") |>
+  mutate(player_id     = as.integer(player_id),
+         fanteam_price = as.numeric(fanteam_price))
+message("    [snapshot] read players tab — ", nrow(players), " rows, ",
+        ncol(players), " cols")
 
 if (!"is_active" %in% names(players)) {
   players$is_active <- TRUE
   message("    [snapshot] is_active not in tab — synthesised TRUE for all")
+} else {
+  players$is_active <- as.logical(as.integer(players$is_active))
 }
 
 teams <- read_sheet(sheet_id(), sheet = "teams", col_types = "iccc")

@@ -63,6 +63,7 @@ lineup_picker_ui <- function(mode) {
                             value = TRUE)
             )
           ),
+          uiOutput(picker_id(mode, "club_board_ui")),
           fluidRow(
             column(4, uiOutput(picker_id(mode, "filter_team_ui"))),
             column(4, selectInput(picker_id(mode, "filter_position"), "Position",
@@ -564,16 +565,33 @@ lineup_picker_server_logic <- function(input, output, session,
                 pick_input_id, pl$player_id)
       } else NULL
       
+      # Surname heavy + first name light, from the dedicated columns
+      # (fallback: last-word split if the columns aren't present yet).
+      p_sur   <- if (!is.null(pl$surname) && !is.na(pl$surname) &&
+                     nzchar(pl$surname)) pl$surname else {
+        parts <- strsplit(trimws(pl$name), " ")[[1]]
+        parts[length(parts)]
+      }
+      p_first <- if (!is.null(pl$first_name) && !is.na(pl$first_name)) {
+        pl$first_name
+      } else {
+        parts <- strsplit(trimws(pl$name), " ")[[1]]
+        if (length(parts) > 1) paste(parts[-length(parts)], collapse = " ") else ""
+      }
+      
       tags$div(
         class   = row_class,
         title   = reason %||% "",
         onclick = onclick_js,
         tags$div(
           class = "player-row-text",
-          tags$div(class = "player-name", pl$name),
-          tags$div(class = "player-meta",
-                   badge_tag(pl$team, size = "sm"),
-                   pl$team, " · ", pl$position)
+          badge_tag(pl$team, size = "md"),
+          tags$span(
+            class = "player-name",
+            if (nzchar(p_first)) tags$span(class = "player-first", p_first),
+            tags$span(class = "player-surname", p_sur)
+          ),
+          tags$span(class = "player-pos", pl$position)
         ),
         if (!is.null(short_label))
           tags$div(
@@ -606,6 +624,42 @@ lineup_picker_server_logic <- function(input, output, session,
     } else NULL
     
     do.call(tagList, c(rows, list(footer)))
+  })
+  
+  # Club board: two rows of ten badges at the top of the pool. Full
+  # colour = a player from that club is in the lineup; washed out =
+  # club still open. The fade count is structural (20 clubs minus
+  # roster_total picks from distinct clubs = 5 faded).
+  output[[iid("club_board_ui")]] <- renderUI({
+    if (editor_dormant()) return(NULL)   # edit picker idle — skip the build
+    sp        <- selected_players()
+    cfg       <- config_data()
+    all_teams <- teams_data() |> arrange(short_code)
+    taken     <- unique(sp$team)
+    n_fade    <- max(0L, nrow(all_teams) -
+                       as.integer(cfg$roster_total %||% 15))
+    
+    tiles <- lapply(seq_len(nrow(all_teams)), function(i) {
+      code <- all_teams$short_code[i]
+      tags$div(
+        class = paste("club-tile",
+                      if (code %in% taken) "club-tile-used" else ""),
+        title = all_teams$name[i],
+        tags$img(src = paste0("logos/", tolower(code), ".svg"),
+                 alt = code),
+        tags$span(class = "club-tile-code", code)
+      )
+    })
+    
+    tags$div(
+      class = "club-board",
+      tags$div(
+        class = "club-board-header",
+        sprintf("Clubs used \u00b7 %d of %d \u2014 you fade %d",
+                length(taken), nrow(all_teams), n_fade)
+      ),
+      tags$div(class = "club-board-grid", tiles)
+    )
   })
   
   output[[iid("roster_ui")]] <- renderUI({
@@ -657,11 +711,8 @@ lineup_picker_server_logic <- function(input, output, session,
             tags$span(
               class = "roster-row-text",
               tags$span(class = "roster-position", pl$position),
-              tags$span(class = "roster-name", pl$name),
-              tags$span(class = "roster-team",
-                        " · ",
-                        badge_tag(pl$team, size = "sm"),
-                        pl$team)
+              badge_tag(pl$team, size = "lg"),
+              tags$span(class = "roster-name", pl$name)
             ),
             if (!locked) tags$div(
               class = "roster-row-actions",
@@ -735,33 +786,7 @@ lineup_picker_server_logic <- function(input, output, session,
                  p("This lineup has no players.")))
     }
     
-    # Club fade tracker: all 20 clubs, used ones highlighted. The fade
-    # count is structural (roster_total picks from one club each), so
-    # it's constant — 20 clubs minus 15 picks = 5 faded.
-    all_teams <- teams_data() |> arrange(short_code)
-    taken     <- unique(sp$team)
-    n_fade    <- max(0L, nrow(all_teams) - target_total)
-    
-    fade_chips <- lapply(seq_len(nrow(all_teams)), function(i) {
-      code <- all_teams$short_code[i]
-      tags$span(
-        class = paste("fade-chip",
-                      if (code %in% taken) "fade-chip-used" else ""),
-        code
-      )
-    })
-    
-    fade_tracker <- tags$div(
-      class = "fade-tracker",
-      tags$div(
-        class = "fade-tracker-header",
-        sprintf("Clubs used \u00b7 %d of %d \u2014 you fade %d",
-                length(taken), nrow(all_teams), n_fade)
-      ),
-      tags$div(class = "fade-tracker-chips", fade_chips)
-    )
-    
-    do.call(tagList, c(groups, list(fade_tracker)))
+    do.call(tagList, groups)
   })
   
   # Undo/Reset row: hidden entirely when locked

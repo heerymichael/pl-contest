@@ -14,6 +14,7 @@ source("R/my_lineups.R")
 source("R/scoring.R")
 source("R/bestball.R")
 source("R/leaderboard.R")
+source("R/scores_2526.R")
 source("R/auth_modals.R")
 source("R/utils.R")
 
@@ -141,7 +142,7 @@ ui <- fluidPage(
               href = paste0("styles.css?v=",
                             as.integer(file.mtime("www/styles.css")))),
     tags$link(rel = "stylesheet", type = "text/css",
-              href = "https://fonts.googleapis.com/css2?family=Inter:wght@900&family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap"),
+              href = "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700;800&display=swap"),
     tags$script(client_js)
   ),
   uiOutput("page")
@@ -162,6 +163,7 @@ app_shell_ui <- function(current_username, current_view, locked) {
                  "lineups"     = my_lineups_view(),
                  "leaderboard" = leaderboard_view(),
                  "rules"       = rules_view(),
+                 "scores"      = scores_2526_view(),
                  if (locked) leaderboard_view() else lineup_creator_view()
   )
   
@@ -233,6 +235,7 @@ server <- function(input, output, session) {
   observeEvent(input$nav_lineups,     { view_state("lineups") })
   observeEvent(input$nav_leaderboard, { view_state("leaderboard") })
   observeEvent(input$nav_rules,       { view_state("rules") })
+  observeEvent(input$nav_scores,      { view_state("scores") })
   
   auth_modals_server_logic(input, output, session, current_user)
   lineup_creator_server_logic(input, output, session, current_user,
@@ -241,6 +244,7 @@ server <- function(input, output, session) {
                           view_state, is_locked_reactive)
   leaderboard_server_logic(input, output, session, current_user,
                            view_state, is_locked_reactive)
+  scores_2526_server_logic(input, output, session)
 }
 
 shinyApp(ui, server)

@@ -32,13 +32,11 @@ nav_header <- function(current_username, current_view = NULL, locked = FALSE) {
     div(
       class = "nav-bar-brand",
       tags$strong(
-        tags$img(
-          src   = "wc26-logo.png",
-          class = "nav-brand-logo",
-          alt   = "FIFA World Cup 2026"
-        ),
-        tags$span(class = "nav-brand-text",
-                  "World Cup", tags$br(), "Challenge")
+        tags$span(class = "gaffer-roundel", "XV"),
+        tags$span(
+          tags$span(class = "gaffer-wordmark", "GAFFER"),
+          tags$span(class = "gaffer-sublabel", "FANTASY XV")
+        )
       ),
       tags$button(
         id    = "nav-hamburger",
@@ -55,7 +53,8 @@ nav_header <- function(current_username, current_view = NULL, locked = FALSE) {
         if (!locked)   link("nav_lineup",      "Build a Lineup", "lineup"),
         if (is_authed) link("nav_lineups",     "My Lineups",     "lineups"),
         link("nav_leaderboard", "Leaderboard", "leaderboard"),
-        link("nav_rules",       "Rules",       "rules")
+        link("nav_rules",       "Rules",       "rules"),
+        link("nav_scores",      "25/26 Scores", "scores")
       ),
       div(
         class = "nav-bar-right",
