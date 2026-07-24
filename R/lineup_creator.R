@@ -24,8 +24,8 @@ library(tibble)
 
 picker_id <- function(mode, name) paste0(mode, "_", name)
 
-# Player pool pagination — rows rendered per "page". 30 covers a full
-# national squad (~26 players) or several position groups at once; the
+# Player pool pagination — rows rendered per "page". 30 covers a big
+# chunk of a club squad (~28 players) or several position groups at once; the
 # Show-more footer in the pool reveals the next page.
 POOL_PAGE_SIZE <- 30L
 
@@ -217,21 +217,21 @@ lineup_picker_server_logic <- function(input, output, session,
     teams <- teams_data()
     
     labels <- c(
-      "All teams",
+      "All clubs",
       vapply(seq_len(nrow(teams)), function(i) {
-        flag_html_label(teams$short_code[i], teams$name[i])
+        badge_html_label(teams$short_code[i], teams$name[i])
       }, character(1))
     )
     values <- c("ALL", teams$short_code)
     
     selectizeInput(
-      iid("filter_team"), "Team",
+      iid("filter_team"), "Club",
       choices  = setNames(values, labels),
       selected = "ALL",
       options  = list(
         render = I("{
-          option: function(item, escape) { return '<div class=\"flag-option\">' + item.label + '</div>'; },
-          item:   function(item, escape) { return '<div class=\"flag-option\">' + item.label + '</div>'; }
+          option: function(item, escape) { return '<div class=\"badge-option\">' + item.label + '</div>'; },
+          item:   function(item, escape) { return '<div class=\"badge-option\">' + item.label + '</div>'; }
         }"),
         # Clear on open so the user can start typing immediately; if they
         # close without picking, restore whatever was selected before.
@@ -362,10 +362,10 @@ lineup_picker_server_logic <- function(input, output, session,
     cfg <- config_data()
     
     pos_max <- c(
-      GK  = cfg$max_gk  %||% 1,
+      GK  = cfg$max_gk  %||% 2,
       DEF = cfg$max_def %||% 5,
-      MID = cfg$max_mid %||% 6,
-      FWD = cfg$max_fwd %||% 4
+      MID = cfg$max_mid %||% 5,
+      FWD = cfg$max_fwd %||% 3
     )
     
     counts <- c(GK = 0L, DEF = 0L, MID = 0L, FWD = 0L)
@@ -412,20 +412,20 @@ lineup_picker_server_logic <- function(input, output, session,
   # ("8 of 11 players selected — pick 3 more"). Only the *first* failed
   # rule is named — one actionable step at a time. The rule order
   # mirrors the original is_lineup_complete checks (total, position
-  # min/max, one-per-nation), so complete == all rules pass.
+  # min/max, one-per-club), so complete == all rules pass.
   lineup_status <- reactive({
     state <- selection_state()
     cfg   <- config_data()
     sp    <- selected_players()
     
-    target <- as.integer(cfg$roster_total %||% 11)
+    target <- as.integer(cfg$roster_total %||% 15)
     pos_min <- c(
-      GK  = as.integer(cfg$min_gk  %||% 1), DEF = as.integer(cfg$min_def %||% 3),
-      MID = as.integer(cfg$min_mid %||% 3), FWD = as.integer(cfg$min_fwd %||% 1)
+      GK  = as.integer(cfg$min_gk  %||% 2), DEF = as.integer(cfg$min_def %||% 5),
+      MID = as.integer(cfg$min_mid %||% 5), FWD = as.integer(cfg$min_fwd %||% 3)
     )
     pos_max <- c(
-      GK  = as.integer(cfg$max_gk  %||% 1), DEF = as.integer(cfg$max_def %||% 5),
-      MID = as.integer(cfg$max_mid %||% 6), FWD = as.integer(cfg$max_fwd %||% 4)
+      GK  = as.integer(cfg$max_gk  %||% 2), DEF = as.integer(cfg$max_def %||% 5),
+      MID = as.integer(cfg$max_mid %||% 5), FWD = as.integer(cfg$max_fwd %||% 3)
     )
     
     counts <- state$counts
@@ -449,7 +449,7 @@ lineup_picker_server_logic <- function(input, output, session,
                          pos_max[[p]], p, counts[[p]])
     } else if (length(state$teams_taken) != total) {
       dup <- unique(sp$team[duplicated(sp$team)])
-      problem <- sprintf("max 1 player per nation (%s picked more than once)",
+      problem <- sprintf("max 1 player per club (%s picked more than once)",
                          paste(dup, collapse = ", "))
     }
     
@@ -481,8 +481,8 @@ lineup_picker_server_logic <- function(input, output, session,
       sp_for_state  <- players_data() |> filter(player_id %in% sel_for_state)
       cfg           <- config_data()
       pos_max <- c(
-        GK  = cfg$max_gk  %||% 1, DEF = cfg$max_def %||% 5,
-        MID = cfg$max_mid %||% 6, FWD = cfg$max_fwd %||% 4
+        GK  = cfg$max_gk  %||% 2, DEF = cfg$max_def %||% 5,
+        MID = cfg$max_mid %||% 5, FWD = cfg$max_fwd %||% 3
       )
       counts <- c(GK = 0L, DEF = 0L, MID = 0L, FWD = 0L)
       if (nrow(sp_for_state) > 0) {
@@ -539,13 +539,13 @@ lineup_picker_server_logic <- function(input, output, session,
       
       reason <- if (locked)         "Contest locked"
       else if (is_picked)           "Already in your lineup"
-      else if (is_team_taken)       "Another player from this team is already picked"
+      else if (is_team_taken)       "Another player from this club is already picked"
       else if (is_pos_full)         "This position group is full"
       else                          NULL
       
       short_label <- if (locked)    "Locked"
       else if (is_picked)           "In lineup"
-      else if (is_team_taken)       "Team picked"
+      else if (is_team_taken)       "Club picked"
       else if (is_pos_full)         "Position full"
       else                          NULL
       
@@ -572,7 +572,7 @@ lineup_picker_server_logic <- function(input, output, session,
           class = "player-row-text",
           tags$div(class = "player-name", pl$name),
           tags$div(class = "player-meta",
-                   flag_tag(pl$team, size = "sm"),
+                   badge_tag(pl$team, size = "sm"),
                    pl$team, " · ", pl$position)
         ),
         if (!is.null(short_label))
@@ -616,12 +616,12 @@ lineup_picker_server_logic <- function(input, output, session,
     cfg    <- config_data()
     
     pos_meta <- list(
-      GK  = list(label = "GOALKEEPER",  min = as.integer(cfg$min_gk  %||% 1), max = as.integer(cfg$max_gk  %||% 1)),
-      DEF = list(label = "DEFENDERS",   min = as.integer(cfg$min_def %||% 3), max = as.integer(cfg$max_def %||% 5)),
-      MID = list(label = "MIDFIELDERS", min = as.integer(cfg$min_mid %||% 3), max = as.integer(cfg$max_mid %||% 6)),
-      FWD = list(label = "FORWARDS",    min = as.integer(cfg$min_fwd %||% 1), max = as.integer(cfg$max_fwd %||% 4))
+      GK  = list(label = "GOALKEEPERS",  min = as.integer(cfg$min_gk  %||% 2), max = as.integer(cfg$max_gk  %||% 2)),
+      DEF = list(label = "DEFENDERS",   min = as.integer(cfg$min_def %||% 5), max = as.integer(cfg$max_def %||% 5)),
+      MID = list(label = "MIDFIELDERS", min = as.integer(cfg$min_mid %||% 5), max = as.integer(cfg$max_mid %||% 5)),
+      FWD = list(label = "FORWARDS",    min = as.integer(cfg$min_fwd %||% 3), max = as.integer(cfg$max_fwd %||% 3))
     )
-    target_total   <- as.integer(cfg$roster_total %||% 11)
+    target_total   <- as.integer(cfg$roster_total %||% 15)
     total_required <- sum(vapply(pos_meta, function(m) m$min, integer(1)))
     total_flex     <- target_total - total_required
     
@@ -660,7 +660,7 @@ lineup_picker_server_logic <- function(input, output, session,
               tags$span(class = "roster-name", pl$name),
               tags$span(class = "roster-team",
                         " · ",
-                        flag_tag(pl$team, size = "sm"),
+                        badge_tag(pl$team, size = "sm"),
                         pl$team)
             ),
             if (!locked) tags$div(
@@ -854,8 +854,8 @@ lineup_picker_server_logic <- function(input, output, session,
       }
       cfg <- config_data()
       pos_max <- c(
-        GK  = cfg$max_gk  %||% 1, DEF = cfg$max_def %||% 5,
-        MID = cfg$max_mid %||% 6, FWD = cfg$max_fwd %||% 4
+        GK  = cfg$max_gk  %||% 2, DEF = cfg$max_def %||% 5,
+        MID = cfg$max_mid %||% 5, FWD = cfg$max_fwd %||% 3
       )
       counts_excl <- c(GK = 0L, DEF = 0L, MID = 0L, FWD = 0L)
       if (nrow(sp_excl) > 0) {

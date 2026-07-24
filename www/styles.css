@@ -3,8 +3,8 @@
  * Single canonical CSS file. No inline style="..." attributes in R code.
  * Single font: Plus Jakarta Sans, used at weights 400/500/700/800 with
  * letter-spacing and uppercase tricks for display labels. Tabular numerals
- * everywhere. Country flag icons via www/flags/{iso}.svg, mapped in
- * R/flags.R.
+ * everywhere. Club badge icons via www/logos/{code}.svg, mapped in
+ * R/badges.R.
  */
 
 /* --- Palette and tokens ------------------------------------------------ */
@@ -852,9 +852,9 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 500;
 }
 
-/* --- Country flag icons ---------------------------------------------- */
+/* --- Club badge icons ---------------------------------------------- */
 
-.flag-icon {
+.badge-icon {
   display: inline-block;
   border-radius: 50%;
   object-fit: cover;
@@ -864,15 +864,15 @@ h1, h2, h3, h4, h5, h6 {
   flex-shrink: 0;
 }
 
-.flag-icon-sm { width: 14px; height: 14px; }
-.flag-icon-md { width: 18px; height: 18px; }
-.flag-icon-lg { width: 22px; height: 22px; }
+.badge-icon-sm { width: 14px; height: 14px; }
+.badge-icon-md { width: 18px; height: 18px; }
+.badge-icon-lg { width: 22px; height: 22px; }
 
-.panel-card-dark .flag-icon {
+.panel-card-dark .badge-icon {
   border-color: rgba(255, 255, 255, 0.18);
 }
 
-.flag-option {
+.badge-option {
   display: flex;
   align-items: center;
 }
@@ -880,7 +880,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Team filter dropdown — more breathing room between options and
    heavier country-name text. Scoped to the dropdown list so it
    doesn't affect the selected pill in the input box. */
-.selectize-dropdown .flag-option {
+.selectize-dropdown .badge-option {
   padding: 6px 4px;
   font-weight: 600;
   color: var(--wc-text);
@@ -1268,7 +1268,7 @@ h1, h2, h3, h4, h5, h6 {
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Teamstake payment button */
+/* Revolut payment button */
 
 .rules-pay-btn,
 .rules-pay-btn:visited {
@@ -1352,7 +1352,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 6px;
 }
 
-.lb-latest .flag-icon {
+.lb-latest .badge-icon {
   width: 16px;
   height: 16px;
 }
@@ -1535,8 +1535,8 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Larger flags scoped to the roster and ownership tables only —
    the player pool keeps its small flags. */
-.lb-roster-player .flag-icon,
-.lb-own-player .flag-icon {
+.lb-roster-player .badge-icon,
+.lb-own-player .badge-icon {
   width: 20px;
   height: 20px;
 }
@@ -1582,7 +1582,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2px;
 }
 
-.lb-roster-sub .flag-icon {
+.lb-roster-sub .badge-icon {
   width: 14px;
   height: 14px;
 }
@@ -1794,7 +1794,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2px;
 }
 
-.lb-own-sub .flag-icon {
+.lb-own-sub .badge-icon {
   width: 14px;
   height: 14px;
 }

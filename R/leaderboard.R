@@ -201,11 +201,11 @@ lb_latest_match_strip <- function(stats) {
     span(class = "lb-latest-label", "Includes matches up to:"),
     span(
       class = "lb-latest-match",
-      flag_tag(sides$team[1], size = "sm"),
+      badge_tag(sides$team[1], size = "sm"),
       span(class = "lb-latest-score",
            paste0(sides$team[1], " ", sides$team_goals_for[1], "\u2013",
                   sides$team_goals_for[2], " ", sides$team[2])),
-      flag_tag(sides$team[2], size = "sm"),
+      badge_tag(sides$team[2], size = "sm"),
       span(class = "lb-latest-date", date_txt)
     )
   )
@@ -513,7 +513,7 @@ leaderboard_server_logic <- function(input, output, session,
             span(class = "lb-roster-name", p$name),
             span(
               class = "lb-roster-sub",
-              flag_tag(p$team, size = "sm"),
+              badge_tag(p$team, size = "sm"),
               span(class = "lb-roster-team", p$team)
             )
           )
@@ -684,7 +684,7 @@ leaderboard_server_logic <- function(input, output, session,
             span(class = "lb-own-name", o$name),
             span(
               class = "lb-own-sub",
-              flag_tag(o$team, size = "sm"),
+              badge_tag(o$team, size = "sm"),
               span(class = "lb-own-team", o$team)
             )
           )
