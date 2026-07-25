@@ -36,13 +36,6 @@ lineup_picker_ui <- function(mode) {
     id    = picker_id(mode, "root"),
     class = "lineup-picker picker-mobile-lineup",
     
-    div(
-      class = "entry-name-row",
-      textInput(picker_id(mode, "entry_name"), label = NULL,
-                placeholder = "Lineup name (optional)",
-                width = "100%")
-    ),
-    
     fluidRow(
       column(
         width = 6,
@@ -94,6 +87,12 @@ lineup_picker_ui <- function(mode) {
         div(
           class = "panel-card panel-card-dark",
           h3("Your Lineup"),
+          div(
+            class = "entry-name-row",
+            textInput(picker_id(mode, "entry_name"), label = NULL,
+                      placeholder = "Lineup name (optional)",
+                      width = "100%")
+          ),
           wc_spinner(uiOutput(picker_id(mode, "roster_ui"))),
           uiOutput(picker_id(mode, "picker_actions")),
           div(
@@ -655,13 +654,19 @@ lineup_picker_server_logic <- function(input, output, session,
     taken     <- unique(sp$team)
     n_fade    <- max(0L, nrow(all_teams) -
                        as.integer(cfg$roster_total %||% 15))
+    ft        <- input[[iid("filter_team")]] %||% "ALL"
     
     tiles <- lapply(seq_len(nrow(all_teams)), function(i) {
       code <- all_teams$short_code[i]
       tags$div(
         class = paste("club-tile",
-                      if (code %in% taken) "club-tile-used" else ""),
-        title = all_teams$name[i],
+                      if (code %in% taken) "club-tile-used" else "",
+                      if (identical(ft, code)) "club-tile-filtered" else ""),
+        title   = paste0(all_teams$name[i],
+                         if (identical(ft, code)) " (filtering \u2014 click to clear)"
+                         else " \u2014 click to filter"),
+        onclick = sprintf("Shiny.setInputValue('%s', '%s', {priority: 'event'});",
+                          iid("club_tile_click"), code),
         tags$img(src = paste0("logos/", tolower(code), ".svg"),
                  alt = code),
         tags$span(class = "club-tile-code", code)
@@ -677,6 +682,18 @@ lineup_picker_server_logic <- function(input, output, session,
       ),
       tags$div(class = "club-board-grid", tiles)
     )
+  })
+  
+  # Club-board tile click -> team filter toggle. Clicking a tile sets
+  # the existing Club dropdown to that club; clicking the same tile
+  # again clears back to All clubs. The pool reacts via the dropdown's
+  # input, so both entry points stay in sync.
+  observeEvent(input[[iid("club_tile_click")]], {
+    code    <- input[[iid("club_tile_click")]]
+    current <- input[[iid("filter_team")]] %||% "ALL"
+    new_val <- if (identical(current, code)) "ALL" else code
+    message(">>> [", mode, "] club_tile_click ", code, " -> filter ", new_val)
+    updateSelectizeInput(session, iid("filter_team"), selected = new_val)
   })
   
   output[[iid("roster_ui")]] <- renderUI({
@@ -711,7 +728,26 @@ lineup_picker_server_logic <- function(input, output, session,
     replace_input_id <- iid("lineup_replace_player")
     slot_input_id    <- iid("slot_click")
     
-    groups <- lapply(names(pos_meta), function(p) {
+    # Pitch view (Design handoff, direction 2a): one band per position,
+    # GK at the top (GK -> DEF -> MID -> FWD). Wiring preserved from
+    # the list view: empty chip click -> slot_click (position filter /
+    # mobile flip); filled chip click -> replace flow; the \u00d7 button ->
+    # remove (stopPropagation so it doesn't also trigger replace).
+    # Naked-crest badge (Design handoff v2, direction 4a): bare crest
+    # SVG, no roundel — sized/shadowed in CSS. TOT/LIV/NFO are too dark
+    # for the purple panel and use secondary inverted crests
+    # (www/logos/{code}_inv.svg), dark-panel context only; the pool and
+    # all white contexts keep the standard crests.
+    pitch_badge <- function(code) {
+      inv  <- toupper(code) %in% c("TOT", "LIV", "NFO")
+      file <- paste0(tolower(code), if (inv) "_inv" else "", ".svg")
+      tags$span(
+        class = "pitch-badge",
+        tags$img(src = paste0("logos/", file), alt = code)
+      )
+    }
+    
+    bands <- lapply(names(pos_meta), function(p) {
       meta            <- pos_meta[[p]]
       filled_n        <- filled_by_pos[[p]]
       req_remaining   <- max(0L, meta$min - filled_n)
@@ -719,91 +755,86 @@ lineup_picker_server_logic <- function(input, output, session,
       opt_here_max    <- max(0L, cap_remaining - req_remaining)
       opt_visible     <- if (locked) 0L else min(opt_here_max, flex_remaining)
       
-      filled_rows <- if (filled_n > 0) {
+      filled_chips <- if (filled_n > 0) {
         pos_players <- sp |> filter(position == p) |> arrange(name)
         lapply(seq_len(nrow(pos_players)), function(i) {
           pl <- pos_players[i, ]
+          p_sur <- if (!is.null(pl$surname) && !is.na(pl$surname) &&
+                       nzchar(pl$surname)) {
+            pl$surname
+          } else {
+            parts <- strsplit(trimws(pl$name), " ")[[1]]
+            parts[length(parts)]
+          }
+          p_first <- if (!is.null(pl$first_name) && !is.na(pl$first_name)) {
+            pl$first_name
+          } else {
+            parts <- strsplit(trimws(pl$name), " ")[[1]]
+            if (length(parts) > 1) paste(parts[-length(parts)], collapse = " ") else ""
+          }
           tags$div(
-            class = "roster-row roster-row-filled",
+            class   = "pitch-slot pitch-slot--filled",
+            onclick = if (!locked)
+              sprintf("Shiny.setInputValue('%s', %d, {priority: 'event'});",
+                      replace_input_id, pl$player_id),
+            pitch_badge(pl$team),
             tags$span(
-              class = "roster-row-text",
-              tags$span(class = "roster-position", pl$position),
-              badge_tag(pl$team, size = "lg"),
-              tags$span(class = "roster-name", pl$name)
+              class = "pitch-player",
+              if (nzchar(p_first))
+                tags$span(class = "pitch-player-first", p_first),
+              tags$span(class = "pitch-player-surname", p_sur)
             ),
-            if (!locked) tags$div(
-              class = "roster-row-actions",
-              tags$button(
-                class   = "btn btn-default btn-xs replace-btn",
-                type    = "button",
-                onclick = sprintf("Shiny.setInputValue('%s', %d, {priority: 'event'});",
-                                  replace_input_id, pl$player_id),
-                "Replace"
-              ),
-              tags$button(
-                class   = "btn btn-default btn-xs remove-btn",
-                type    = "button",
-                onclick = sprintf("Shiny.setInputValue('%s', %d, {priority: 'event'});",
-                                  remove_input_id, pl$player_id),
-                "Remove"
-              )
+            if (!locked) tags$button(
+              class        = "pitch-remove",
+              type         = "button",
+              `aria-label` = paste("Remove", pl$name),
+              onclick      = sprintf(
+                "event.stopPropagation(); Shiny.setInputValue('%s', %d, {priority: 'event'});",
+                remove_input_id, pl$player_id),
+              HTML("&times;")
             )
           )
         })
       } else list()
       
-      required_empty_rows <- if (req_remaining > 0 && !locked) {
-        lapply(seq_len(req_remaining), function(i) {
-          tags$div(
-            class   = "roster-row roster-row-empty roster-row-empty-required",
-            onclick = sprintf("Shiny.setInputValue('%s', '%s', {priority: 'event'});",
-                              slot_input_id, p),
-            tags$span(
-              class = "roster-row-text",
-              tags$span(class = "roster-position", p),
-              tags$span(class = "roster-slot-placeholder", "Empty")
-            )
-          )
-        })
+      empty_chip <- function(extra_class = NULL) {
+        tags$div(
+          class   = paste(c("pitch-slot", "pitch-slot--empty", extra_class),
+                          collapse = " "),
+          onclick = sprintf("Shiny.setInputValue('%s', '%s', {priority: 'event'});",
+                            slot_input_id, p),
+          tags$span(class = "pitch-badge pitch-badge--ghost"),
+          tags$span(class = "pitch-slot-pos", p)
+        )
+      }
+      required_empty_chips <- if (req_remaining > 0 && !locked) {
+        lapply(seq_len(req_remaining), function(i) empty_chip())
+      } else list()
+      optional_empty_chips <- if (opt_visible > 0 && !locked) {
+        lapply(seq_len(opt_visible),
+               function(i) empty_chip("pitch-slot--optional"))
       } else list()
       
-      optional_empty_rows <- if (opt_visible > 0 && !locked) {
-        lapply(seq_len(opt_visible), function(i) {
-          tags$div(
-            class   = "roster-row roster-row-empty roster-row-empty-optional",
-            onclick = sprintf("Shiny.setInputValue('%s', '%s', {priority: 'event'});",
-                              slot_input_id, p),
-            tags$span(
-              class = "roster-row-text",
-              tags$span(class = "roster-position", p),
-              tags$span(class = "roster-slot-placeholder", "Empty")
-            ),
-            tags$span(class = "roster-optional-pill", "Optional")
-          )
-        })
-      } else list()
-      
-      if (length(filled_rows) == 0 &&
-          length(required_empty_rows) == 0 &&
-          length(optional_empty_rows) == 0) return(NULL)
+      chips <- c(filled_chips, required_empty_chips, optional_empty_chips)
+      if (length(chips) == 0) return(NULL)
       
       tags$div(
-        class = "roster-group",
-        tags$div(class = "roster-group-header", meta$label),
-        filled_rows,
-        required_empty_rows,
-        optional_empty_rows
+        class = paste0("pitch-row pitch-row--", tolower(p)),
+        tags$span(class = "pitch-row-label", p),
+        tags$div(class = "pitch-row-slots", chips)
       )
     })
     
-    groups <- Filter(Negate(is.null), groups)
+    bands <- Filter(Negate(is.null), bands)
     
-    if (length(groups) == 0) {
+    if (length(bands) == 0) {
       return(div(class = "empty-state",
                  p("This lineup has no players.")))
     }
     
-    do.call(tagList, groups)
+    div(class = paste(c("pitch", if (locked) "pitch--readonly"),
+                      collapse = " "),
+        bands)
   })
   
   # Undo/Reset row: hidden entirely when locked

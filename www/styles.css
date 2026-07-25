@@ -1030,6 +1030,21 @@ h1, h2, h3, h4, h5, h6 {
 @media (max-width: 480px) {
   .lineup-header h2  { font-size: 32px; }
 
+  /* Pitch view — compact rendering (handoff .pitch--compact rules,
+     applied via breakpoint rather than modifier class) */
+  .pitch { gap: 24px; }
+  .pitch-row { padding: 10px 10px 10px 6px; }
+  .pitch-row-label { font-size: 14px; letter-spacing: 0.2em; }
+  .pitch-row-slots { gap: 12px 8px; padding-left: 7px; }
+  .pitch-slot--filled { padding: 4px 10px 4px 4px; }
+  .pitch-slot--empty { padding: 4px 13px 4px 4px; }
+  .pitch-badge { width: 28px; height: 28px; }
+  .pitch-badge img { width: 27px; height: 27px; }
+  .pitch-player { max-width: 110px; }
+  .pitch-player-first { display: none; }
+  .pitch-player-surname { font-size: 15px; }
+
+
   /* Countdown banner — stack message and timer */
   .countdown-banner {
     flex-direction: column;
@@ -1903,9 +1918,22 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  /* Tiles double as filter toggles */
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .club-tile:hover img { transform: scale(1.08); }
+}
+
+/* Lime ring marks the tile currently applied as the pool's club filter */
+.club-tile-filtered {
+  border-radius: var(--wc-radius-sm);
+  box-shadow: 0 0 0 2px var(--wc-lime);
 }
 
 .club-tile img {
+  transition: transform 0.15s ease;
   width: 100%;
   max-width: 44px;
   height: 40px;
@@ -2263,3 +2291,196 @@ h1, h2, h3, h4,
 .scores-table td:nth-child(2) { width: 56px; }
 .scores-table th:nth-child(3),
 .scores-table td:nth-child(3) { width: 52px; }
+
+/* --- Lineup pitch view (banded field, direction 2a) -----------------
+   From the Claude Design handoff (pitch_view_handoff.html).
+   Compact rules live in the 480px breakpoint below.
+   ------------------------------------------------------------------ */
+
+/* --- Pitch container: one band per position group, FWD first (attack
+       at the top), GK deepest. Band order is set in markup. ---------- */
+.pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* --- Band -------------------------------------------------------- */
+.pitch-row {
+  background: var(--wc-panel-dark-inner);
+  border-radius: 10px;
+  padding: 12px 14px 12px 8px;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+/* Modifier hooks per band (no visual difference today) */
+.pitch-row--gk, .pitch-row--def, .pitch-row--mid, .pitch-row--fwd {}
+
+/* Rotated position abbreviation, pinned to the band's left edge */
+.pitch-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font: 700 15px var(--wc-font-display);
+  color: var(--wc-lime);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Chip area: centred, wraps at narrow widths (never scrolls) */
+.pitch-row-slots {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  gap: 16px 12px; /* row-gap doubled; column gap widened slightly */
+  border-left: 1px solid var(--wc-panel-dark-divider);
+  padding-left: 8px;
+}
+
+/* --- Slots (chips) ------------------------------------------------ */
+.pitch-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  transition: border-color 0.18s ease, box-shadow 0.25s ease;
+}
+.pitch-slot--filled {
+  background: var(--wc-cobalt);
+  border: 1px solid var(--wc-panel-dark-divider);
+  padding: 5px 12px 5px 5px;
+}
+.pitch-slot--empty {
+  border: 1.5px dashed rgba(255, 255, 255, 0.25);
+  padding: 5px 16px 5px 5px;
+}
+/* .pitch-slot--optional — reserved, not designed in current ruleset */
+
+/* Hover: border colour change + soft glow. Builder only, pointer
+   devices only (matches the app's existing hover gating). */
+@media (hover: hover) {
+  .pitch:not(.pitch--readonly) .pitch-slot--filled:hover {
+    border-color: var(--wc-coral);
+    box-shadow: 0 0 0 1px rgba(233, 0, 82, 0.35), 0 0 16px rgba(233, 0, 82, 0.45);
+  }
+  .pitch:not(.pitch--readonly) .pitch-slot--empty:hover {
+    border-color: rgba(0, 229, 140, 0.55);
+    box-shadow: 0 0 0 1px rgba(0, 229, 140, 0.25), 0 0 16px rgba(0, 229, 140, 0.35);
+    cursor: pointer;
+  }
+}
+
+/* --- Badge: naked crest (approved direction 4a). No plate — the
+       crest floats on the chip at near-full size with a soft drop
+       shadow. Dark crests (TOT, LIV, NFO) use secondary inverted
+       SVGs: www/logos/{code}_inv.svg — see handoff notes. The
+       lettered disc is the no-asset fallback. ----------------------- */
+.pitch-badge {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  font: 700 9px var(--wc-font-display);
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
+}
+.pitch-badge:has(img) { background: none; }
+.pitch-badge img {
+  width: 29px;
+  height: 29px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+.pitch-badge--ghost {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+}
+/* Filter fallback if an inverted SVG isn't available yet:
+   <img class="pitch-badge-img--knockout"> renders any crest as a
+   flat white silhouette. */
+.pitch-badge img.pitch-badge-img--knockout {
+  filter: brightness(0) invert(1) drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+/* --- Player name: light first name + heavy surname, single line,
+       truncates on long names --------------------------------------- */
+.pitch-player {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Sizes match the player pool (.player-name: 19px) */
+.pitch-player-first {
+  font: 400 19px var(--wc-font);
+  color: rgba(255, 255, 255, 0.6);
+}
+.pitch-player-surname {
+  font: 700 19px var(--wc-font);
+  color: var(--wc-white);
+}
+
+/* Empty-slot position label */
+.pitch-slot-pos {
+  font: 600 15px var(--wc-font-display);
+  color: rgba(0, 229, 140, 0.8);
+  letter-spacing: 0.14em;
+}
+/* Uniform empty-chip footprint so GK/DEF/MID/FWD placeholders read as
+   one consistent size regardless of label length */
+.pitch-slot--empty {
+  min-width: 108px;
+  justify-content: center;
+}
+
+/* --- Remove affordance -------------------------------------------- */
+.pitch-remove {
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  color: rgba(255, 255, 255, 0.35);
+  font: 600 12px var(--wc-font);
+  line-height: 1;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .pitch-remove:hover { color: var(--wc-coral); }
+}
+
+/* --- Lineup name input, relocated inside the dark panel ---------- */
+.panel-card-dark .entry-name-row { margin: 0 0 16px; }
+.panel-card-dark .entry-name-row .form-group { margin-bottom: 0; }
+.panel-card-dark .entry-name-row .form-control {
+  background: var(--wc-panel-dark-inner);
+  border: 1px solid var(--wc-panel-dark-divider);
+  color: var(--wc-white);
+  border-radius: var(--wc-radius-sm);
+  box-shadow: none;
+}
+.panel-card-dark .entry-name-row .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+.panel-card-dark .entry-name-row .form-control:focus {
+  border-color: var(--wc-lime);
+  box-shadow: 0 0 0 1px rgba(0, 229, 140, 0.25);
+}
+
+/* --- Read-only variant (My Lineups / post-lock): no remove buttons
+       in markup, empty slots dimmed, hovers disabled above ----------- */
+.pitch--readonly .pitch-slot--empty { opacity: 0.55; }
