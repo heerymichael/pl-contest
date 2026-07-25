@@ -1,22 +1,22 @@
-# build_2526_scores.R (v2) -----------------------------------------------
+# build_2526_scores.R (v3) -----------------------------------------------
 # Builds the bundled 2025-26 season scores exhibit:
 #   data/pl2526_scores.rds
 #
-# v2: no raw-JSON cache needed. Home/away sides derive from a
-# three-pass resolution of team_id -> club name, validated against the
-# full season data:
-#   1. Intersection: a club's name is the one name common to all of a
-#      team_id's matches.
-#   2. Match propagation: in any match with one resolved id, the other
-#      id takes the remaining name.
-#   3. Player-identity vote: academy/fringe secondary ids resolve via
-#      where their players appear under resolved ids.
-# One row in 15,198 (a single-appearance youth player under a one-off
-# id) remains unresolvable and is dropped with a logged message.
+# v3 changes:
+#   - BENCH FIX: only rows with minutes_played > 0 are scored. The
+#     dataset carries a row for every squad member every match; unused
+#     subs were accruing result/clean-sheet/conceded points (Kepa: 37
+#     bench rows). The live ingest must apply the same guard.
+#   - Per-category COUNTS and POINTS stored per player, powering the
+#     events/points display toggle. Category points are asserted to
+#     sum to the engine total per player (consistency gate).
+#   - first_name/surname split (particle-aware: van/de/der/di etc.)
+#   - club_code column for badge rendering (25/26 twenty incl. the
+#     three since relegated)
 #
-# Scoring runs through the LIVE R/scoring.R ruleset. Known v1
-# omissions: penalty saves (+3) and own goals (-5) are not in the
-# collected payloads; footnoted in the UI.
+# Scoring maths runs through the LIVE R/scoring.R engine; category
+# breakdown mirrors it and is verified against it. Omissions (not in
+# the collected payloads): penalty saves, own goals — footnoted in UI.
 #
 # Run from the pl-contest project root (no Sheets auth needed):
 #   source("build_2526_scores.R")
@@ -30,7 +30,7 @@ PARQUET_PMS   <- file.path(FOOTBALL_DATA, "parquet", "player_match_stats")
 stopifnot(dir.exists(PARQUET_PMS))
 source("R/scoring.R")
 
-message(">>> build_2526_scores (v2)")
+message(">>> build_2526_scores (v3)")
 
 pms <- open_dataset(PARQUET_PMS) |>
   filter(season == "2025_26") |>
@@ -43,7 +43,6 @@ message("    [scores] player-match rows: ", nrow(pms))
 
 tm <- pms |> distinct(team_id, match_id, home_team, away_team)
 
-# Pass 1: intersection
 mapping <- new.env()
 for (tid in unique(tm$team_id)) {
   g <- tm[tm$team_id == tid, ]
@@ -52,8 +51,6 @@ for (tid in unique(tm$team_id)) {
                            c(g$home_team[i], g$away_team[i])))
   if (length(names_common) == 1) assign(tid, names_common, envir = mapping)
 }
-
-# Pass 2: match propagation
 repeat {
   changed <- FALSE
   for (mid in unique(tm$match_id)) {
@@ -65,26 +62,17 @@ repeat {
       other <- setdiff(ids, known)
       rem   <- setdiff(c(g$home_team[1], g$away_team[1]),
                        get(known, envir = mapping))
-      if (length(rem) == 1) {
-        assign(other, rem, envir = mapping)
-        changed <- TRUE
-      }
+      if (length(rem) == 1) { assign(other, rem, envir = mapping); changed <- TRUE }
     }
   }
   if (!changed) break
 }
-
-# Pass 3: player-identity vote for remaining (academy secondary ids)
-club_lookup <- function(tid) {
+club_lookup <- function(tid)
   if (exists(tid, envir = mapping)) get(tid, envir = mapping) else NA_character_
-}
 pms$club <- vapply(pms$team_id, club_lookup, character(1))
-
-unresolved <- unique(pms$team_id[is.na(pms$club)])
-for (tid in unresolved) {
+for (tid in unique(pms$team_id[is.na(pms$club)])) {
   players <- unique(pms$player_id[pms$team_id == tid])
-  votes <- pms |>
-    filter(player_id %in% players, !is.na(club)) |>
+  votes <- pms |> filter(player_id %in% players, !is.na(club)) |>
     count(club) |> arrange(desc(n))
   g    <- tm[tm$team_id == tid, ]
   cand <- unique(c(g$home_team, g$away_team))
@@ -92,12 +80,8 @@ for (tid in unresolved) {
   if (length(pick) > 0) assign(tid, pick[1], envir = mapping)
 }
 pms$club <- vapply(pms$team_id, club_lookup, character(1))
-
 n_drop <- sum(is.na(pms$club))
-if (n_drop > 5) {
-  stop("Too many unmapped rows (", n_drop, ") — resolution failed; ",
-       "investigate before building", call. = FALSE)
-}
+if (n_drop > 5) stop("Too many unmapped rows (", n_drop, ")", call. = FALSE)
 if (n_drop > 0) {
   message("    [scores] dropping ", n_drop, " unresolvable row(s): ",
           paste(unique(pms$player_name[is.na(pms$club)]), collapse = ", "))
@@ -106,7 +90,17 @@ if (n_drop > 0) {
 message("    [scores] clubs mapped: ", length(unique(pms$club)),
         " (expect 20)")
 
-# --- 2. Side, result, conceded ------------------------------------------
+# --- 2. BENCH FIX: only rows where the player actually played -----------
+
+n_before <- nrow(pms)
+pms <- pms |>
+  mutate(minutes_n = suppressWarnings(as.numeric(minutes_played)),
+         minutes_n = ifelse(is.na(minutes_n), 0, minutes_n)) |>
+  filter(minutes_n > 0)
+message("    [scores] bench/no-minute rows removed: ", n_before - nrow(pms),
+        " — scoring ", nrow(pms), " appearance rows")
+
+# --- 3. Side, result, conceded ------------------------------------------
 
 pms <- pms |>
   mutate(
@@ -118,29 +112,26 @@ pms <- pms |>
                                    TRUE                            ~ "D")
   )
 
-# --- 3. Positions (API G/D/M/F -> contest; modal per player) ------------
+# --- 4. Positions --------------------------------------------------------
 
 POS_MAP <- c("G" = "GK", "D" = "DEF", "M" = "MID", "F" = "FWD")
 unknown_pos <- setdiff(unique(toupper(trimws(pms$position))), names(POS_MAP))
-if (length(unknown_pos) > 0) {
-  stop("Unmapped API position value(s): ",
-       paste(unknown_pos, collapse = ", "), call. = FALSE)
-}
+if (length(unknown_pos) > 0) stop("Unmapped position: ",
+                                  paste(unknown_pos, collapse = ", "),
+                                  call. = FALSE)
 players_dim <- pms |>
   mutate(cpos = unname(POS_MAP[toupper(trimws(position))])) |>
   count(player_id, cpos) |>
-  group_by(player_id) |>
-  slice_max(n, n = 1, with_ties = FALSE) |>
+  group_by(player_id) |> slice_max(n, n = 1, with_ties = FALSE) |>
   ungroup() |>
   transmute(player_id = as.character(player_id), position = cpos)
 
-# --- 4. Score through the live engine -----------------------------------
+# --- 5. Engine scoring (authoritative totals) ----------------------------
 
 stats <- pms |>
   transmute(
     player_id       = as.character(player_id),
-    player_name,
-    match_id,
+    player_name, match_id,
     goals           = shooting_goals,
     assists         = passing_assists,
     total_shots     = shooting_total_shots,
@@ -150,43 +141,111 @@ stats <- pms |>
     saves           = goalkeeping_saves,
     yellow_cards    = general_yellow_cards,
     red_cards       = general_red_cards,
-    minutes_played,
-    team_goals_against,
-    result,
-    own_goals       = 0,
-    penalty_saves   = 0
+    minutes_played  = minutes_n,
+    team_goals_against, result,
+    own_goals = 0, penalty_saves = 0
   )
-
 scored <- score_player_match_stats(as.data.frame(stats),
                                    as.data.frame(players_dim))
 
-# --- 5. Season aggregate -------------------------------------------------
+# --- 6. Per-category counts + points (mirrors the engine) ---------------
 
-club_of <- pms |>
-  count(player_id, club) |>
-  group_by(player_id) |>
-  slice_max(n, n = 1, with_ties = FALSE) |>
-  ungroup() |>
-  transmute(player_id = as.character(player_id), club)
+cat_rows <- scored |>
+  mutate(
+    minutes = .num0(minutes_played),
+    g_n   = .num0(goals),            a_n  = .num0(assists),
+    sh_n  = .num0(total_shots),      sot_n = .num0(shots_on_target),
+    tkl_n = .num0(tackles),          int_n = .num0(interceptions),
+    yc_n  = .num0(yellow_cards),     rc_n  = .num0(red_cards),
+    sv_n  = .num0(saves),
+    conc_n = .num0(team_goals_against),
+    yc_charged = ifelse(rc_n > 0, pmin(yc_n, 1), yc_n),
+    is_gk  = position == "GK", is_def = position == "DEF",
+    cs_flag = conc_n == 0 & minutes > 60,
+    cs_n    = as.integer(cs_flag),
+    cs_p    = ifelse(cs_flag,
+                     c(GK = 8, DEF = 8, MID = 4, FWD = 0)[position], 0),
+    w_n = as.integer(toupper(result) == "W"),
+    d_n = as.integer(toupper(result) == "D"),
+    res_p = ifelse(is_gk,  ifelse(w_n == 1, 5, ifelse(d_n == 1, 2, 0)),
+            ifelse(is_def, ifelse(w_n == 1, 2, ifelse(d_n == 1, 1, 0)), 0)),
+    g_p = g_n * 10, a_p = a_n * 6, sh_p = sh_n, sot_p = sot_n,
+    tkl_p = tkl_n, int_p = int_n,
+    yc_p = yc_charged * -1.5, rc_p = rc_n * -5,
+    sv_p  = ifelse(is_gk, sv_n * 2, 0),
+    conc_gk_n = ifelse(is_gk, conc_n, 0),
+    conc_p    = ifelse(is_gk, conc_n * -2, 0)
+  )
 
-season <- scored |>
-  mutate(minutes = .num0(minutes_played),
-         cs      = .num0(team_goals_against) == 0 & minutes > 60) |>
+season <- cat_rows |>
   group_by(player_id, player_name, position) |>
   summarise(
-    apps          = sum(minutes > 0),
-    minutes       = sum(minutes),
-    goals         = sum(.num0(goals)),
-    assists       = sum(.num0(assists)),
-    tackles       = sum(.num0(tackles)),
-    interceptions = sum(.num0(interceptions)),
-    clean_sheets  = sum(cs & position %in% c("GK", "DEF", "MID")),
-    saves         = sum(.num0(saves)),
-    total_points  = round(sum(points), 1),
+    apps = n(), minutes = sum(minutes),
+    across(c(g_n, a_n, sh_n, sot_n, tkl_n, int_n, yc_n, rc_n,
+             cs_n, w_n, d_n, sv_n, conc_gk_n,
+             g_p, a_p, sh_p, sot_p, tkl_p, int_p, yc_p, rc_p,
+             cs_p, res_p, sv_p, conc_p), sum),
+    engine_total = sum(points),
     .groups = "drop"
   ) |>
-  mutate(ppg = round(ifelse(apps > 0, total_points / apps, 0), 1)) |>
+  mutate(
+    total_points = round(g_p + a_p + sh_p + sot_p + tkl_p + int_p +
+                           yc_p + rc_p + cs_p + res_p + sv_p + conc_p, 1),
+    ppg          = round(ifelse(apps > 0, total_points / apps, 0), 1)
+  )
+
+# Consistency gate: category breakdown must reproduce the engine
+bad <- season |> filter(abs(total_points - round(engine_total, 1)) > 0.05)
+if (nrow(bad) > 0) {
+  print(head(bad |> select(player_name, total_points, engine_total)))
+  stop("Category breakdown disagrees with the engine for ", nrow(bad),
+       " players — investigate before shipping", call. = FALSE)
+}
+message("    [scores] category breakdown == engine total for all ",
+        nrow(season), " players \u2713")
+
+# --- 7. Club codes + name split ------------------------------------------
+
+CLUB_CODES <- c(
+  "Arsenal" = "ARS", "Aston Villa" = "AVL", "Bournemouth" = "BOU",
+  "Brentford" = "BRE", "Brighton & Hove Albion" = "BHA",
+  "Burnley" = "BUR", "Chelsea" = "CHE", "Crystal Palace" = "CRY",
+  "Everton" = "EVE", "Fulham" = "FUL", "Leeds United" = "LEE",
+  "Liverpool" = "LIV", "Manchester City" = "MCI",
+  "Manchester United" = "MUN", "Newcastle United" = "NEW",
+  "Nottingham Forest" = "NFO", "Sunderland" = "SUN",
+  "Tottenham Hotspur" = "TOT", "West Ham United" = "WHU",
+  "Wolverhampton" = "WOL"
+)
+club_of <- pms |>
+  count(player_id, club) |>
+  group_by(player_id) |> slice_max(n, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  transmute(player_id = as.character(player_id), club)
+missing_code <- setdiff(unique(club_of$club), names(CLUB_CODES))
+if (length(missing_code) > 0) stop("No club code for: ",
+                                   paste(missing_code, collapse = ", "),
+                                   call. = FALSE)
+
+PARTICLES <- c("van", "de", "den", "der", "di", "da", "dos", "del",
+               "la", "le", "el", "st.", "st", "mc")
+split_name <- function(full) {
+  parts <- strsplit(trimws(full), " ")[[1]]
+  if (length(parts) <= 1) return(c("", full))
+  cut <- length(parts)
+  while (cut > 2 && tolower(parts[cut - 1]) %in% PARTICLES) cut <- cut - 1
+  if (cut == 2 && tolower(parts[1]) %in% PARTICLES) cut <- 1
+  c(paste(parts[seq_len(cut - 1)], collapse = " "),
+    paste(parts[cut:length(parts)], collapse = " "))
+}
+nm <- t(vapply(season$player_name, split_name, character(2)))
+season$first_name <- nm[, 1]
+season$surname    <- nm[, 2]
+
+season <- season |>
   left_join(club_of, by = "player_id") |>
+  mutate(club_code = unname(CLUB_CODES[club])) |>
+  select(-engine_total) |>
   arrange(desc(total_points))
 
 message("    [scores] season table: ", nrow(season), " players; top: ",
@@ -195,4 +254,4 @@ message("    [scores] season table: ", nrow(season), " players; top: ",
 
 dir.create("data", showWarnings = FALSE)
 saveRDS(season, "data/pl2526_scores.rds")
-message(">>> build_2526_scores complete — data/pl2526_scores.rds written")
+message(">>> build_2526_scores (v3) complete — data/pl2526_scores.rds written")

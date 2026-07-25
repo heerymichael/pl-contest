@@ -861,9 +861,9 @@ h1, h2, h3, h4, h5, h6 {
 
 .badge-icon {
   display: inline-block;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid rgba(15, 20, 25, 0.15);
+  border-radius: 0;
+  object-fit: contain;
+  border: none;
   vertical-align: middle;
   margin-right: 5px;
   flex-shrink: 0;
@@ -2075,7 +2075,7 @@ h1, h2, h3, h4,
 .scores-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 1240px;
 }
 
 .scores-th {
@@ -2137,3 +2137,124 @@ h1, h2, h3, h4,
 @media (max-width: 480px) {
   .scores-table-scroll { max-height: none; }
 }
+
+/* --- 25/26 Scores v2: toggle, badges, name weights, tidy columns ------- */
+
+.scores-table {
+  table-layout: fixed;
+}
+
+.scores-table th:nth-child(1),
+.scores-table td:nth-child(1) { width: 220px; }
+.scores-table th:nth-child(2),
+.scores-table td:nth-child(2) { width: 64px; }
+.scores-table th:nth-child(3),
+.scores-table td:nth-child(3) { width: 64px; }
+
+.scores-table td,
+.scores-th {
+  font-variant-numeric: tabular-nums;
+}
+
+.scores-first {
+  font-weight: 400;
+  color: var(--wc-text-muted);
+  margin-right: 5px;
+}
+
+.scores-surname {
+  font-weight: 700;
+}
+
+.scores-club-cell {
+  text-align: center;
+}
+
+.scores-badge {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.scores-badge-fallback {
+  display: inline-block;
+  font: 700 12px var(--wc-font-display);
+  letter-spacing: 1px;
+  color: var(--wc-text-quiet);
+  border: 1px solid var(--wc-border-row);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+
+/* Inline radio toggle, GAFFER-flavoured */
+#sc26_mode .radio-inline,
+#sc26_mode .radio label {
+  font: 700 15px var(--wc-font-display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--wc-text-muted);
+}
+
+/* --- Pool column header + 25/26 info columns --------------------------- */
+
+.pool-colhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 2px solid var(--wc-border-row);
+  font: 700 13px var(--wc-font-display);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--wc-text-quiet);
+}
+
+.pool-colhead-player { flex: 1; }
+.pool-colhead-pos    { width: 56px; text-align: center; flex: none; }
+.pool-colhead-pts    { width: 90px; text-align: right;  flex: none; }
+.pool-colhead-ppg    { width: 64px; text-align: right;  flex: none; }
+.pool-colhead-spacer { width: 110px; flex: none; }
+
+.player-name { flex: 1; }
+
+.player-row-text .player-pos {
+  width: 56px;
+  text-align: center;
+  flex: none;
+}
+
+.player-pts,
+.player-ppg {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  flex: none;
+  font-size: 16px;
+  color: var(--wc-text-muted);
+}
+
+.player-pts { width: 90px; font-weight: 700; color: var(--wc-text); }
+.player-ppg { width: 64px; }
+
+.player-row-right {
+  width: 110px;
+  flex: none;
+  text-align: right;
+}
+
+/* --- 25/26 Scores: tighter type, hard alignment ------------------------ */
+
+.scores-table td { font-size: 15px; padding: 8px 10px; }
+.scores-th       { font-size: 13px; padding: 9px 10px; }
+.scores-pts      { font-size: 17px; }
+
+.scores-table td.scores-num,
+.scores-table th.scores-num { text-align: right; }
+
+.scores-table td.scores-center,
+.scores-table th.scores-center { text-align: center; }
+
+.scores-table th:nth-child(2),
+.scores-table td:nth-child(2) { width: 56px; }
+.scores-table th:nth-child(3),
+.scores-table td:nth-child(3) { width: 52px; }

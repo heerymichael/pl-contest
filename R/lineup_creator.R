@@ -76,6 +76,14 @@ lineup_picker_ui <- function(mode) {
                                 placeholder = "type to search…"))
           ),
           div(
+            class = "pool-colhead",
+            tags$span(class = "pool-colhead-player", "Player"),
+            tags$span(class = "pool-colhead-pos", "Pos"),
+            tags$span(class = "pool-colhead-pts", "Pts 25/26"),
+            tags$span(class = "pool-colhead-ppg", "PPG"),
+            tags$span(class = "pool-colhead-spacer")
+          ),
+          div(
             class = "player-list-scroll",
             wc_spinner(uiOutput(picker_id(mode, "player_pool_ui")))
           )
@@ -591,7 +599,13 @@ lineup_picker_server_logic <- function(input, output, session,
             if (nzchar(p_first)) tags$span(class = "player-first", p_first),
             tags$span(class = "player-surname", p_sur)
           ),
-          tags$span(class = "player-pos", pl$position)
+          tags$span(class = "player-pos", pl$position),
+          tags$span(class = "player-pts",
+                    if (!is.null(pl$pts_2526) && !is.na(pl$pts_2526))
+                      sprintf("%.1f", as.numeric(pl$pts_2526)) else "\u2014"),
+          tags$span(class = "player-ppg",
+                    if (!is.null(pl$ppg_2526) && !is.na(pl$ppg_2526))
+                      sprintf("%.1f", as.numeric(pl$ppg_2526)) else "\u2014")
         ),
         if (!is.null(short_label))
           tags$div(
