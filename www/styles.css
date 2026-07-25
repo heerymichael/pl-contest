@@ -439,6 +439,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px; /* matches .pool-colhead gap so the right block offsets identically */
   padding: 9px 4px;
   border-bottom: 1px solid var(--wc-border-row);
 }
@@ -464,6 +465,10 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  /* Fill the row so .player-name{flex:1} has space to absorb — without
+     this the cluster packs left at content width and nothing aligns
+     with the .pool-colhead columns. */
+  flex: 1;
 }
 
 .player-row-right {

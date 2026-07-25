@@ -45,7 +45,7 @@ lineup_picker_ui <- function(mode) {
     
     fluidRow(
       column(
-        width = 7,
+        width = 6,
         div(
           class = "panel-card",
           actionButton(
@@ -80,7 +80,7 @@ lineup_picker_ui <- function(mode) {
             tags$span(class = "pool-colhead-player", "Player"),
             tags$span(class = "pool-colhead-pos", "Pos"),
             tags$span(class = "pool-colhead-pts", "Pts 25/26"),
-            tags$span(class = "pool-colhead-ppg", "PPG"),
+            tags$span(class = "pool-colhead-ppg", "PP90"),
             tags$span(class = "pool-colhead-spacer")
           ),
           div(
@@ -90,7 +90,7 @@ lineup_picker_ui <- function(mode) {
         )
       ),
       column(
-        width = 5,
+        width = 6,
         div(
           class = "panel-card panel-card-dark",
           h3("Your Lineup"),
@@ -577,9 +577,9 @@ lineup_picker_server_logic <- function(input, output, session,
       # (fallback: last-word split if the columns aren't present yet).
       p_sur   <- if (!is.null(pl$surname) && !is.na(pl$surname) &&
                      nzchar(pl$surname)) pl$surname else {
-        parts <- strsplit(trimws(pl$name), " ")[[1]]
-        parts[length(parts)]
-      }
+                       parts <- strsplit(trimws(pl$name), " ")[[1]]
+                       parts[length(parts)]
+                     }
       p_first <- if (!is.null(pl$first_name) && !is.na(pl$first_name)) {
         pl$first_name
       } else {
@@ -604,14 +604,17 @@ lineup_picker_server_logic <- function(input, output, session,
                     if (!is.null(pl$pts_2526) && !is.na(pl$pts_2526))
                       sprintf("%.1f", as.numeric(pl$pts_2526)) else "\u2014"),
           tags$span(class = "player-ppg",
-                    if (!is.null(pl$ppg_2526) && !is.na(pl$ppg_2526))
-                      sprintf("%.1f", as.numeric(pl$ppg_2526)) else "\u2014")
+                    if (!is.null(pl$pp90_2526) && !is.na(pl$pp90_2526))
+                      sprintf("%.1f", as.numeric(pl$pp90_2526)) else "\u2014")
         ),
-        if (!is.null(short_label))
-          tags$div(
-            class = "player-row-right",
+        # Always render the right-hand block (empty when unlabelled) so
+        # every row reserves the same 110px the colhead spacer does —
+        # otherwise Pos/Pts/PP90 shift right and misalign with headers.
+        tags$div(
+          class = "player-row-right",
+          if (!is.null(short_label))
             tags$span(class = label_class, short_label)
-          )
+        )
       )
     })
     # "Showing N of M · Show 30 more" footer — only when rows remain.

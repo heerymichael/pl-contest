@@ -136,9 +136,10 @@ rules_view <- function() {
     ),
     
     p(class = "rules-intro",
-      "Build a roster of 11 players from across all 48 qualified nations and
-       accumulate points from their real-life performances throughout the
-       tournament."),
+      "Build a squad of 15 players from across the 20 Premier League clubs
+       and accumulate points from their real-life performances over
+       Gameweeks 1–19 of the 2026/27 season. There are no weekly lineups to
+       set — your best XI is picked automatically every gameweek."),
     
     # Roster construction --------------------------------------------
     div(
@@ -146,27 +147,57 @@ rules_view <- function() {
       div(class = "rules-section-label", "Roster construction"),
       div(
         class = "rules-chip-row",
-        rules_chip("GK",  "exactly 1"),
-        rules_chip("DEF", "3–5"),
-        rules_chip("MID", "3–6"),
-        rules_chip("FWD", "1–4")
+        rules_chip("GK",  "exactly 2"),
+        rules_chip("DEF", "exactly 5"),
+        rules_chip("MID", "exactly 5"),
+        rules_chip("FWD", "exactly 3")
       ),
       div(
         class = "rules-pill-row",
-        span(class = "rules-meta-pill", "11 players total"),
-        span(class = "rules-meta-pill", "Max 1 per nation"),
-        span(class = "rules-meta-pill", "Up to 10 entries")
+        span(class = "rules-meta-pill", "15 players total"),
+        span(class = "rules-meta-pill", "Max 1 per club"),
+        span(class = "rules-meta-pill", "Up to 5 entries")
       )
+    ),
+    
+    # Bestball ---------------------------------------------------------
+    div(
+      class = "panel-card rules-section",
+      div(class = "rules-section-label", "Bestball — your XI picks itself"),
+      p(class = "rules-body",
+        "Each gameweek the app automatically selects your highest-scoring
+         XI from your 15, using any valid formation:"),
+      div(
+        class = "rules-pill-row",
+        rules_pill("1 GK"),
+        rules_pill("3–5 DEF"),
+        rules_pill("2–5 MID"),
+        rules_pill("1–3 FWD")
+      ),
+      p(class = "rules-body",
+        "Your entry's total is the sum of its optimal-XI points across all
+         19 gameweeks. There is nothing to submit weekly, no captains, no
+         transfers, and no benching decisions — the best XI is always
+         chosen for you."),
+      rules_item("Double gameweeks.",
+                 "If a player has more than one fixture in a gameweek, their points
+         for that gameweek are the sum across all of their fixtures, banked
+         before the XI is selected."),
+      rules_item("Non-appearances.",
+                 "Players who don't feature score 0 for that gameweek. They only
+         appear in your XI if the formation minima force it.")
     ),
     
     # Lock time -------------------------------------------------------
     div(
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Lock time"),
-      span(class = "rules-lock-chip", "Locks 1 hour before the opening kickoff"),
+      span(class = "rules-lock-chip", "Locks at kickoff of the opening fixture"),
       p(class = "rules-body",
-        "After lock, no further edits are possible. Players whose nations are
-         eliminated remain on your roster but stop accumulating points.")
+        "Entries lock at kickoff of the opening fixture of the 2026/27
+         season (Arsenal v Coventry City, 21 August 2026). After lock, no
+         further edits are possible — rosters are fixed for all 19
+         gameweeks.")
     ),
     
     # Scoring ----------------------------------------------------------
@@ -181,15 +212,17 @@ rules_view <- function() {
           rules_score_row("Assist",         "+6"),
           rules_score_row("Shot",           "+1"),
           rules_score_row("Shot on target", "+1"),
-          rules_score_row("Shootout goal",  "+1.5")
+          rules_score_row("Tackle",         "+1"),
+          rules_score_row("Interception",   "+1")
         ),
         div(
           class = "rules-score-col",
-          rules_score_row("Clean sheet (DEF)", "+6"),
+          rules_score_row("Clean sheet (DEF)", "+8"),
           rules_score_row("Clean sheet (MID)", "+4"),
-          rules_score_row("Yellow card",   "−1.5", neg = TRUE),
-          rules_score_row("Red card",      "−5",   neg = TRUE),
-          rules_score_row("Shootout miss", "−1",   neg = TRUE)
+          rules_score_row("Win (DEF)",  "+2"),
+          rules_score_row("Draw (DEF)", "+1"),
+          rules_score_row("Yellow card", "−1.5", neg = TRUE),
+          rules_score_row("Red card",    "−5",   neg = TRUE)
         )
       ),
       div(class = "rules-section-label", "Scoring — goalkeepers"),
@@ -200,12 +233,12 @@ rules_view <- function() {
           rules_score_row("Save",        "+2"),
           rules_score_row("Clean sheet", "+8"),
           rules_score_row("Win",         "+5"),
-          rules_score_row("Assist",      "+6")
+          rules_score_row("Draw",        "+2")
         ),
         div(
           class = "rules-score-col",
           rules_score_row("Penalty save (in play)", "+3"),
-          rules_score_row("Shootout save",          "+1.5"),
+          rules_score_row("Assist",        "+6"),
           rules_score_row("Goal conceded", "−2", neg = TRUE)
         )
       )
@@ -215,6 +248,9 @@ rules_view <- function() {
     div(
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Scoring clarifications"),
+      rules_item("Flat scoring.",
+                 "Every gameweek scores the same — there are no round multipliers,
+         bonus fixtures, or scoring bumps of any kind."),
       rules_item("Goals stack.",
                  "A goal also counts as a shot and a shot on target, so every goal is
          worth 12 points in total (10 + 1 + 1)."),
@@ -228,42 +264,12 @@ rules_view <- function() {
                  span(class = "rules-neg", "−6.5"), "."),
       rules_item("Goalkeepers.",
                  "Goalkeepers also score all standard points (goals, shots,
-         assists, cards) in addition to the goalkeeper-specific points
-         listed."),
+         assists, tackles, interceptions, cards) in addition to the
+         goalkeeper-specific points listed."),
       rules_item("Clean sheets.",
-                 "The team must concede no goals across the entire match — including
-         extra time in knockout rounds — and the player must play more than
-         60 minutes. A player substituted off before a goal is conceded does
-         not retain the clean sheet."),
-      rules_item("Extra time.",
-                 "All points earned in extra time score normally at the round's
-         multiplier."),
-      rules_item("Shootouts.",
-                 "Only shootout-specific points apply. A miss is any kick that does
-         not score, whether saved or off target. Shootout goals do not count
-         as goals scored or conceded and do not affect clean sheets."),
-      rules_item("Shootout wins.",
-                 "A match won on a penalty shootout counts as a win for goalkeeper
-         scoring."),
-      rules_item("Third place.",
-                 "The third-place playoff is fully zeroed: no points of any kind,
-         positive or negative, are scored.")
-    ),
-    
-    # Round multipliers ------------------------------------------------
-    div(
-      class = "panel-card rules-section",
-      div(class = "rules-section-label", "Round multipliers"),
-      div(
-        class = "rules-pill-row",
-        rules_pill("Group", "×1.0"),
-        rules_pill("R32",   "×1.2"),
-        rules_pill("R16",   "×1.4"),
-        rules_pill("QF",    "×1.6"),
-        rules_pill("SF",    "×1.8"),
-        rules_pill("3rd place ×0", class = "rules-pill-muted"),
-        rules_pill("Final ×2.0",   class = "rules-pill-final")
-      )
+                 "The team must concede no goals across the entire match, and the
+         player must play more than 60 minutes. A player substituted off
+         before a goal is conceded does not retain the clean sheet.")
     ),
     
     # Stats, positions & withdrawals -----------------------------------
@@ -274,14 +280,15 @@ rules_view <- function() {
                  "All match statistics are drawn automatically from TheStatsAPI, the
          authoritative source for scoring. If the provider corrects a
          statistic, scores and standings update accordingly. Final standings
-         are confirmed 48 hours after the final, after which they are fixed
-         for prize purposes."),
+         are confirmed 48 hours after the last Gameweek 19 fixture, after
+         which they are fixed for prize purposes."),
       rules_item("Positions.",
                  "Player positions as listed in the app at lock time are final for
          scoring purposes, regardless of where a player actually plays."),
       rules_item("Withdrawals.",
                  "There are no replacements after lock for any reason — injury,
-         withdrawal, suspension, or non-selection.")
+         suspension, transfer, or non-selection. Players remain on your
+         roster and simply score whatever they score.")
     ),
     
     # Leaderboard ------------------------------------------------------
@@ -289,10 +296,9 @@ rules_view <- function() {
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Leaderboard"),
       p(class = "rules-body",
-        "The leaderboard is first published once every nation has completed
-         its first group-stage match (the end of Matchday 1), and updated
-         regularly thereafter. Scores may be provisional while match stats
-         are collated.")
+        "The leaderboard is first published once Gameweek 1 is complete,
+         and updated regularly thereafter. Scores may be provisional while
+         match stats are collated.")
     ),
     
     # Prize structure --------------------------------------------------
@@ -300,10 +306,11 @@ rules_view <- function() {
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Prize structure"),
       p(class = "rules-body",
-        "There is no rake — 100% of the pot is paid out as prizes. The pot is
-         the sum of all paid entries. While the field is under 50 entries,
-         the top 10% of entries are paid (rounded up, minimum 2, maximum 5
-         places). From 50 entries, the top 15% are paid (rounded up)."),
+        "There is no rake — 100% of the pot is paid out as prizes. The pot
+         is the sum of all paid £10 entries. While the field is under 50
+         entries, the top 10% of entries are paid (rounded up, minimum 2,
+         maximum 5 places). From 50 entries, the top 15% are paid (rounded
+         up)."),
       div(
         class = "rules-pill-row",
         rules_pill("2 places ·",  "65 / 35"),
@@ -320,47 +327,20 @@ rules_view <- function() {
          places equally.")
     ),
     
-    # Confirmed prize pool (this contest) ------------------------------
-    div(
-      class = "panel-card rules-section",
-      div(class = "rules-section-label", "Prize pool — this contest"),
-      p(class = "rules-body",
-        "The field closed at 38 paid entries; unpaid entries were voided at
-         lock and excluded from the standings and the count. At $10 per entry
-         the pot is $380, paid across the top 4 places (the top 10% of 38,
-         rounded up). First place takes 40% of the pot, with prizes descending
-         smoothly from there:"),
-      div(
-        class = "rules-pill-row",
-        rules_pill("1st ·", "$152.00"),
-        rules_pill("2nd ·", "$102.00"),
-        rules_pill("3rd ·", "$74.00"),
-        rules_pill("4th ·", "$52.00"),
-        rules_pill("Pot ·", "$380", class = "rules-pill-final")
-      ),
-      rules_item("Currency.",
-                 "Entry fees were paid in a mix of US dollars and pounds sterling.
-         Prizes are set in dollars at the $10 entry rate. Where a prize is paid
-         in sterling it converts at the same $10 : £8 rate used for entries —
-         £121.60 / £81.60 / £59.20 / £41.60 (total £304).")
-    ),
-    
     # Payment -----------------------------------------------------------
     div(
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Payment"),
       p(class = "rules-body",
-        "Entries are paid via Revolut. All entry monies are held by
-         Revolut (an independent third party) for security — funds are not
-         held by the organiser. Payment status is updated manually by the
-         admin, so there may be a short lag between paying and being marked
-         as paid."),
+        "Entries are £10 each, paid in sterling via Revolut. Payment status
+         is updated manually by the admin, so there may be a short lag
+         between paying and being marked as paid."),
       p(class = "rules-body",
         span(class = "rules-neg", "Unpaid entries at lock are void"),
         " — removed from the leaderboard, not eligible for prizes, and not
          counted toward the field size."),
       payment_link(label = "Pay via Revolut →",
-                     class = "btn rules-pay-btn")
+                   class = "btn rules-pay-btn")
     ),
     
     # Governance ---------------------------------------------------------

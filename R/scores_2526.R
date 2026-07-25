@@ -19,11 +19,21 @@ library(dplyr)
 
 .scores_2526 <- if (file.exists("data/pl2526_scores.rds")) {
   out <- readRDS("data/pl2526_scores.rds")
-  message("    [scores2526] loaded ", nrow(out), " players")
+  # Exhibit floor: exclude small samples (fewer than 4 apps or fewer
+  # than 360 minutes) — their totals and PP90 are noise. View-only:
+  # the full table still feeds the pool's pts_2526/pp90_2526 join in
+  # snapshot_pl_reference.R.
+  n_all <- nrow(out)
+  out <- out |> filter(apps >= 4, minutes >= 360)
+  .sc26_excluded <- n_all - nrow(out)
+  message("    [scores2526] loaded ", n_all, " players; showing ",
+          nrow(out), " (excluded ", .sc26_excluded,
+          " with <4 apps or <360 mins)")
   out
 } else {
   message("    [scores2526] data/pl2526_scores.rds MISSING — view will ",
           "show a placeholder. Run build_2526_scores.R.")
+  .sc26_excluded <- NULL
   NULL
 }
 
@@ -37,9 +47,11 @@ library(dplyr)
   list(id = "int",  label = "Int",  n = "int_n",     p = "int_p"),
   list(id = "yc",   label = "YC",   n = "yc_n",      p = "yc_p"),
   list(id = "rc",   label = "RC",   n = "rc_n",      p = "rc_p"),
+  list(id = "og",   label = "OG",   n = "og_n",      p = "og_p"),
   list(id = "cs",   label = "CS",   n = "cs_n",      p = "cs_p"),
   list(id = "res",  label = "Res",  n = "wd",        p = "res_p"),
   list(id = "sv",   label = "Saves", n = "sv_n",     p = "sv_p"),
+  list(id = "ps",   label = "PenSv", n = "ps_n",     p = "ps_p"),
   list(id = "conc", label = "Conc", n = "conc_gk_n", p = "conc_p")
 )
 
@@ -118,19 +130,22 @@ scores_2526_view <- function() {
         "Only matches where the player was on the pitch are counted.
          Res shows wins-draws as events and result points (GK win +5 /
          draw +2, DEF win +2 / draw +1) in points view; Conc is goals
-         conceded while a keeper played. Two rare events are not in the
-         historic dataset and are excluded: in-play penalty saves (+3)
-         and own goals (\u22125). Both score normally in the live
-         contest."
+         conceded while a keeper played. OG is own goals (\u22125);
+         PenSv is in-play penalty saves (+3), extracted from match
+         shotmaps.",
+        if (!is.null(.sc26_excluded))
+          paste0(" The table lists players with at least 4 appearances",
+                 " and 360 minutes played in 25/26 \u2014 ",
+                 .sc26_excluded, " smaller-sample players are excluded.")
       )
     )
   )
 }
 
 scores_2526_server_logic <- function(input, output, session) {
-
+  
   message(">>> ENTER scores_2526_server_logic")
-
+  
   if (is.null(.scores_2526)) {
     output$sc26_table_ui <- renderUI({
       div(class = "empty-state",
@@ -138,9 +153,9 @@ scores_2526_server_logic <- function(input, output, session) {
     })
     return(invisible(NULL))
   }
-
+  
   sc_sort <- reactiveVal(list(col = "total_points", desc = TRUE))
-
+  
   observeEvent(input$sc26_sort_col, {
     cur <- sc_sort()
     col <- input$sc26_sort_col
@@ -151,42 +166,42 @@ scores_2526_server_logic <- function(input, output, session) {
                    desc = !col %in% c("player_name", "club", "position")))
     }
   })
-
+  
   output$sc26_table_ui <- renderUI({
     df   <- .scores_2526
     mode <- input$sc26_mode %||% "n"
-
+    
     fp <- input$sc26_filter_position %||% "OUTFIELD"
     fc <- input$sc26_filter_club
     fn <- input$sc26_filter_name
-
+    
     df <- if (fp == "OUTFIELD") df |> filter(position != "GK")
-          else df |> filter(position == fp)
+    else df |> filter(position == fp)
     if (!is.null(fc) && fc != "ALL") df <- df |> filter(club == fc)
     if (!is.null(fn) && nzchar(trimws(fn))) {
       df <- df |> filter(grepl(trimws(fn), player_name,
                                ignore.case = TRUE))
     }
-
+    
     # sortable column id -> actual data column for the current mode
     col_for <- function(cid) {
       if (cid %in% c("player_name", "club", "position",
-                     "apps", "minutes", "total_points", "ppg")) return(cid)
+                     "apps", "minutes", "total_points", "pp90")) return(cid)
       cat <- Filter(function(x) x$id == cid, .sc_cats)[[1]]
       if (mode == "n") {
         if (cat$n == "wd") "w_n" else cat$n
       } else cat$p
     }
-
+    
     srt <- sc_sort()
     scol <- col_for(srt$col)
     df <- df[order(df[[scol]], decreasing = srt$desc), ]
-
+    
     if (nrow(df) == 0) {
       return(div(class = "empty-state",
                  p("No players match these filters.")))
     }
-
+    
     th <- function(cid, label, num = TRUE, center = FALSE) {
       active <- identical(sc_sort()$col, cid)
       arrow  <- if (!active) "" else if (sc_sort()$desc) " \u25be" else " \u25b4"
@@ -200,7 +215,7 @@ scores_2526_server_logic <- function(input, output, session) {
         paste0(label, arrow)
       )
     }
-
+    
     header <- tags$tr(
       th("player_name", "Player", num = FALSE),
       th("club",        "Club",   center = TRUE),
@@ -210,12 +225,12 @@ scores_2526_server_logic <- function(input, output, session) {
       lapply(.sc_cats, function(cat)
         th(cat$id, cat$label, center = identical(cat$id, "res"))),
       th("total_points", "Points"),
-      th("ppg",          "PPG")
+      th("pp90",         "PP90")
     )
-
+    
     fmt_n <- function(x) format(round(x), big.mark = ",")
     fmt_p <- function(x) sprintf("%.1f", x)
-
+    
     body <- lapply(seq_len(nrow(df)), function(i) {
       r <- df[i, ]
       badge <- tags$img(
@@ -231,7 +246,7 @@ scores_2526_server_logic <- function(input, output, session) {
           if (cat$n == "wd") paste0(r$w_n, "-", r$d_n) else fmt_n(r[[cat$n]])
         } else fmt_p(r[[cat$p]])
         tags$td(class = if (identical(cat$id, "res")) "scores-center"
-                        else "scores-num", val)
+                else "scores-num", val)
       })
       tags$tr(
         class = "scores-tr",
@@ -245,10 +260,10 @@ scores_2526_server_logic <- function(input, output, session) {
         tags$td(class = "scores-num", fmt_n(r$minutes)),
         cat_cells,
         tags$td(class = "scores-num scores-pts", fmt_p(r$total_points)),
-        tags$td(class = "scores-num", fmt_p(r$ppg))
+        tags$td(class = "scores-num", fmt_p(r$pp90))
       )
     })
-
+    
     tags$table(class = "scores-table",
                tags$thead(header), tags$tbody(body))
   })

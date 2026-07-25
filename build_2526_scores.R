@@ -15,8 +15,12 @@
 #     three since relegated)
 #
 # Scoring maths runs through the LIVE R/scoring.R engine; category
-# breakdown mirrors it and is verified against it. Omissions (not in
-# the collected payloads): penalty saves, own goals — footnoted in UI.
+# breakdown mirrors it and is verified against it. Own goals (-5) and
+# in-play penalty saves (+3) are joined from the rare-events CSV
+# (extract_2526_rare_events.R over the raw shotmaps) after the
+# consistency gate — the gate validates the parquet-derived categories
+# against the engine, then the two shotmap-sourced categories and the
+# final totals are layered on top.
 #
 # Run from the pl-contest project root (no Sheets auth needed):
 #   source("build_2526_scores.R")
@@ -168,7 +172,7 @@ cat_rows <- scored |>
     w_n = as.integer(toupper(result) == "W"),
     d_n = as.integer(toupper(result) == "D"),
     res_p = ifelse(is_gk,  ifelse(w_n == 1, 5, ifelse(d_n == 1, 2, 0)),
-            ifelse(is_def, ifelse(w_n == 1, 2, ifelse(d_n == 1, 1, 0)), 0)),
+                   ifelse(is_def, ifelse(w_n == 1, 2, ifelse(d_n == 1, 1, 0)), 0)),
     g_p = g_n * 10, a_p = a_n * 6, sh_p = sh_n, sot_p = sot_n,
     tkl_p = tkl_n, int_p = int_n,
     yc_p = yc_charged * -1.5, rc_p = rc_n * -5,
@@ -191,7 +195,7 @@ season <- cat_rows |>
   mutate(
     total_points = round(g_p + a_p + sh_p + sot_p + tkl_p + int_p +
                            yc_p + rc_p + cs_p + res_p + sv_p + conc_p, 1),
-    ppg          = round(ifelse(apps > 0, total_points / apps, 0), 1)
+    pp90         = round(ifelse(minutes > 0, total_points / minutes * 90, 0), 1)
   )
 
 # Consistency gate: category breakdown must reproduce the engine
@@ -203,6 +207,56 @@ if (nrow(bad) > 0) {
 }
 message("    [scores] category breakdown == engine total for all ",
         nrow(season), " players \u2713")
+
+# --- 6b. Rare events: own goals + in-play penalty saves ------------------
+# From the raw shotmaps via extract_2526_rare_events.R (football-data).
+# Joined AFTER the gate: the gate checks parquet-vs-engine; these two
+# categories exist only in the shotmaps. Conceded/clean sheets already
+# reflect own goals (match scores are team-level), so the -5 is the
+# only adjustment; +3 per penalty save attaches to the keeper.
+
+RARE_EVENTS_CSV <- file.path(FOOTBALL_DATA, "pl_2526_rare_events.csv")
+if (!file.exists(RARE_EVENTS_CSV)) {
+  stop("Missing ", RARE_EVENTS_CSV, " — run ",
+       "extract_2526_rare_events.R in football-data first.",
+       call. = FALSE)
+}
+ev <- read.csv(RARE_EVENTS_CSV, stringsAsFactors = FALSE)
+ev_agg <- ev |>
+  group_by(player_id) |>
+  summarise(og_n = sum(event_type == "own_goal"),
+            ps_n = sum(event_type == "pen_save"), .groups = "drop")
+
+orphans <- setdiff(ev_agg$player_id, season$player_id)
+if (length(orphans) > 0) {
+  bad_ev <- ev |> filter(player_id %in% orphans)
+  print(bad_ev |> select(event_type, match_id, player_id, player_name))
+  stop("Rare-event player(s) not in the season table — investigate ",
+       "before shipping", call. = FALSE)
+}
+
+season <- season |>
+  left_join(ev_agg, by = "player_id") |>
+  mutate(
+    og_n = ifelse(is.na(og_n), 0L, og_n),
+    ps_n = ifelse(is.na(ps_n), 0L, ps_n),
+    og_p = og_n * -5,
+    ps_p = ps_n * 3,
+    total_points = round(total_points + og_p + ps_p, 1),
+    pp90         = round(ifelse(minutes > 0,
+                                total_points / minutes * 90, 0), 1)
+  )
+
+stopifnot(
+  "own-goal total drifted from the events CSV" =
+    sum(season$og_n) == sum(ev$event_type == "own_goal"),
+  "pen-save total drifted from the events CSV" =
+    sum(season$ps_n) == sum(ev$event_type == "pen_save")
+)
+message("    [scores] rare events joined: ", sum(season$og_n),
+        " own goals (", sum(season$og_n > 0), " players), ",
+        sum(season$ps_n), " penalty saves (",
+        sum(season$ps_n > 0), " keepers)")
 
 # --- 7. Club codes + name split ------------------------------------------
 

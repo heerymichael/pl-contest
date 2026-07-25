@@ -2,7 +2,7 @@
 # Regenerates the local reference snapshots that R/cache.R loads:
 #   data/players_snapshot.rds  /  data/teams_snapshot.rds
 #
-# v3: joins informational 25/26 columns (pts_2526, ppg_2526) into the
+# v3: joins informational 25/26 columns (pts_2526, pp90_2526) into the
 # players snapshot from data/pl2526_scores.rds, via normalised
 # full-name matching (no shared id exists between FanTeam and the
 # API). Non-matches — promoted-club players, summer arrivals — stay NA
@@ -42,9 +42,9 @@ if (file.exists("data/pl2526_scores.rds")) {
     group_by(nn) |>
     slice_max(minutes, n = 1, with_ties = FALSE) |>
     ungroup() |>
-    transmute(nn, pts_2526 = total_points, ppg_2526 = ppg)
+    transmute(nn, pts_2526 = total_points, pp90_2526 = pp90)
   players <- players |>
-    select(-any_of(c("pts_2526", "ppg_2526"))) |>
+    select(-any_of(c("pts_2526", "pp90_2526"))) |>
     mutate(nn = norm_name(name)) |>
     left_join(sc, by = "nn") |>
     select(-nn)
@@ -52,7 +52,7 @@ if (file.exists("data/pl2526_scores.rds")) {
           " of ", nrow(players), " pool players matched")
 } else {
   players$pts_2526 <- NA_real_
-  players$ppg_2526 <- NA_real_
+  players$pp90_2526 <- NA_real_
   message("    [snapshot] data/pl2526_scores.rds missing — 25/26 columns NA")
 }
 
