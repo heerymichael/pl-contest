@@ -9,9 +9,12 @@ message(">>> SOURCED R/utils.R at ", format(Sys.time()))
 # Revolut — entry fees are paid by direct Revolut transfer.
 # Single source of truth for the URL and the link's target/rel attrs.
 #
-# !!! PLACEHOLDER — replace CHANGEME with the real revolut.me handle
-# before any deploy. The apply script's verification will remind you.
-REVOLUT_URL <- "https://revolut.me/CHANGEME"
+# Personal revolut.me payment page (verified live 25 Jul 2026).
+# Note: Revolut.me does not support presetting an amount in the URL —
+# amount presets only exist on single-use in-app payment requests —
+# so the rules copy states the \u00a310 explicitly and asks for the
+# display name as the payment reference.
+REVOLUT_URL <- "https://revolut.me/michaelheery"
 
 payment_link <- function(label = "Pay via Revolut \u2192", class = NULL) {
   tags$a(

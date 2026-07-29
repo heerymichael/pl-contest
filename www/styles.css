@@ -395,10 +395,59 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
-.pool-toggle-inline label {
-  font-size: 17px;
+/* Native checkbox restyled as a toggle switch — same checkboxInput,
+   same id and behaviour; the input is visually hidden and the track/
+   knob are drawn on the label (state via :has, as elsewhere). */
+.pool-toggle-inline .checkbox label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 0;
+  margin: 0;
+  font: 500 17px var(--wc-font);
   color: var(--wc-text-muted);
-  font-weight: 500;
+  cursor: pointer;
+}
+
+.pool-toggle-inline .checkbox input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  margin: 0;
+}
+
+.pool-toggle-inline .checkbox label::before {
+  content: "";
+  flex: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(55, 0, 60, 0.2);
+  transition: background 0.15s ease;
+}
+
+.pool-toggle-inline .checkbox label::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--wc-white);
+  transform: translateY(-50%);
+  transition: transform 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.pool-toggle-inline .checkbox label:has(input:checked)::before {
+  background: var(--wc-lime);
+}
+
+.pool-toggle-inline .checkbox label:has(input:checked)::after {
+  transform: translate(18px, -50%);
 }
 
 .panel-card-dark {
@@ -1902,15 +1951,58 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .club-board-header {
-  font-size: 15px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.club-board-eyebrow {
+  font: 700 13px var(--wc-font-display);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wc-text-quiet);
+}
+
+.club-board-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.club-board-count-n {
+  font: 700 22px var(--wc-font-display);
+  color: var(--wc-text);
+  line-height: 1;
+}
+
+.club-board-count-total {
+  font: 600 14px var(--wc-font-display);
+  color: var(--wc-text-quiet);
+}
+
+.club-board-fade-pill {
+  font: 700 12px var(--wc-font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--wc-text-muted);
-  margin-bottom: 10px;
+  background: var(--wc-cream);
+  border: 1px solid rgba(55, 0, 60, 0.12);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+/* All non-faded clubs used — squad complete on the club rule */
+.club-board-fade-pill--done {
+  color: var(--wc-cobalt);
+  background: var(--wc-lime);
+  border-color: var(--wc-lime);
 }
 
 .club-board-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
-  gap: 8px;
+  gap: 12px 8px;
 }
 
 .club-tile {
@@ -1918,12 +2010,16 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  padding: 6px 4px 5px;
+  border-radius: var(--wc-radius-sm);
+  transition: background 0.15s ease;
   /* Tiles double as filter toggles */
   cursor: pointer;
 }
 
 @media (hover: hover) {
-  .club-tile:hover img { transform: scale(1.08); }
+  .club-tile:hover { background: rgba(55, 0, 60, 0.06); }
+  .club-tile:hover img { transform: scale(1.05); }
 }
 
 /* Lime ring marks the tile currently applied as the pool's club filter */
@@ -1950,7 +2046,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .club-tile-code {
   font: 700 12px var(--wc-font-display);
-  letter-spacing: 1px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--wc-text-quiet);
 }
 
@@ -2484,3 +2581,12 @@ h1, h2, h3, h4,
 /* --- Read-only variant (My Lineups / post-lock): no remove buttons
        in markup, empty slots dimmed, hovers disabled above ----------- */
 .pitch--readonly .pitch-slot--empty { opacity: 0.55; }
+/* --- 25/26 exhibit: mid-season mover stint tag (v4 stint split) --- */
+.scores-stint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--gaffer-muted, #8a8794);
+  white-space: nowrap;
+}

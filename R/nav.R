@@ -200,6 +200,42 @@ rules_view <- function() {
          gameweeks.")
     ),
     
+    # The player pool ---------------------------------------------------
+    div(
+      class = "panel-card rules-section",
+      div(class = "rules-section-label", "The player pool"),
+      p(class = "rules-body",
+        "The player pool is refreshed daily during the final week before
+         the season starts, so club listings reflect completed transfers
+         as closely as possible. The pool is frozen at lock — players who
+         join the Premier League after lock are not added.")
+    ),
+    
+    # Transfers after lock (GW1-3) --------------------------------------
+    div(
+      class = "panel-card rules-section",
+      div(class = "rules-section-label", "Transfers after lock (Gameweeks 1–3)"),
+      p(class = "rules-body",
+        "The summer transfer window closes after the season begins, so a
+         player you own may change clubs during Gameweeks 1–3."),
+      rules_item("Club clashes.",
+                 "If one of your players transfers to a club where you already hold
+         a player, your squad would break the max-one-per-club rule. When
+         this happens, the lower-listed of the two players (per the pool's
+         listing order) is automatically dropped and replaced by the next
+         listed player in his position at the club the transferring player
+         left."),
+      rules_item("Automatic and final.",
+                 "Points already scored by the dropped player stand; the replacement
+         scores from the substitution onward. Before lock you are free to
+         edit over any substitution — after lock the substitution is
+         final. Check the transfer news before you lock in."),
+      rules_item("Leaving the league.",
+                 "A player who leaves the Premier League entirely stays on your
+         roster but stops accumulating points — like any non-featuring
+         player, bestball simply never picks him.")
+    ),
+    
     # Scoring ----------------------------------------------------------
     div(
       class = "panel-card rules-section",
@@ -287,8 +323,10 @@ rules_view <- function() {
          scoring purposes, regardless of where a player actually plays."),
       rules_item("Withdrawals.",
                  "There are no replacements after lock for any reason — injury,
-         suspension, transfer, or non-selection. Players remain on your
-         roster and simply score whatever they score.")
+         suspension, or non-selection. Players remain on your roster and
+         simply score whatever they score. The only exception is the
+         automatic club-clash substitution described under Transfers
+         after lock.")
     ),
     
     # Leaderboard ------------------------------------------------------
@@ -332,9 +370,11 @@ rules_view <- function() {
       class = "panel-card rules-section",
       div(class = "rules-section-label", "Payment"),
       p(class = "rules-body",
-        "Entries are £10 each, paid in sterling via Revolut. Payment status
-         is updated manually by the admin, so there may be a short lag
-         between paying and being marked as paid."),
+        "Entries are £10 each, paid in sterling via the Revolut link
+         below — enter £10 as the amount, and put your display name in
+         the payment reference so your entry can be matched quickly.
+         Payment status is updated manually by the admin, so there may
+         be a short lag between paying and being marked as paid."),
       p(class = "rules-body",
         span(class = "rules-neg", "Unpaid entries at lock are void"),
         " — removed from the leaderboard, not eligible for prizes, and not

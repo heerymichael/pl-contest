@@ -75,7 +75,7 @@ countdown_banner_ui <- function(locked = FALSE) {
     class = "countdown-banner banner-neutral",
     tags$span(
       class = "countdown-banner-message",
-      "Lineups lock 1 hour before first kickoff"
+      "Lineups lock at the opening kickoff"
     ),
     tags$span(
       id    = "countdown-banner-timer",

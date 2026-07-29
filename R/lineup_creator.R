@@ -677,8 +677,21 @@ lineup_picker_server_logic <- function(input, output, session,
       class = "club-board",
       tags$div(
         class = "club-board-header",
-        sprintf("Clubs used \u00b7 %d of %d \u2014 you fade %d",
-                length(taken), nrow(all_teams), n_fade)
+        tags$span(class = "club-board-eyebrow", "Clubs used"),
+        tags$span(
+          class = "club-board-count",
+          tags$span(class = "club-board-count-n", length(taken)),
+          tags$span(class = "club-board-count-total",
+                    paste0("/ ", nrow(all_teams)))
+        ),
+        tags$span(
+          class = paste(
+            "club-board-fade-pill",
+            if (length(taken) >= nrow(all_teams) - n_fade)
+              "club-board-fade-pill--done"
+          ),
+          sprintf("Fading %d", n_fade)
+        )
       ),
       tags$div(class = "club-board-grid", tiles)
     )

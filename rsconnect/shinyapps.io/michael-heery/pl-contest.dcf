@@ -1,0 +1,12 @@
+name: pl-contest
+title: pl-contest
+username: michael-heery
+account: michael-heery
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17648658
+bundleId: 12333255
+url: https://michael-heery.shinyapps.io/pl-contest/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

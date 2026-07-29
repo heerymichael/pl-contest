@@ -1,38 +1,45 @@
-# 2025-26 season scores exhibit (pl-contest). v2
+# 2025-26 season scores exhibit (pl-contest). v3
 #
 # Static reference view: every 25/26 PL player's season, scored with
-# the GAFFER ruleset (data/pl2526_scores.rds from build_2526_scores.R,
-# which runs the live R/scoring.R engine with a per-category breakdown
-# asserted against it).
+# the GAFFER ruleset. v3 reads data/pl2526_stints.rds (from
+# build_2526_scores.R v4): one row per (player, club stint), so a
+# mid-season mover — Semenyo BOU -> MCI — appears once per stint, each
+# row carrying that stint's stats, badge and points. Single-club
+# players get exactly one row, identical to their season line. A muted
+# month-range tag marks stint rows for movers.
 #
-# v2: events/points display toggle across ALL scoring categories;
-# badge-only club column; heavy-surname player names; 1dp point
-# formatting; position filter defaults to all outfielders (GK stats
-# dominate several columns, so keepers get their own view); club
-# filter choices baked into the view (dynamic updates don't reach
-# inputs created after server start).
+# The exhibit floor (small-sample exclusion) is applied at PLAYER
+# level (season apps/minutes) so a mover's short stint isn't hidden
+# while their long one shows.
+#
+# v2 (retained): events/points display toggle across ALL scoring
+# categories; badge-only club column; heavy-surname player names; 1dp
+# point formatting; position filter defaults to all outfielders; club
+# filter choices baked into the view.
 
 message(">>> SOURCED R/scores_2526.R at ", format(Sys.time()))
 
 library(shiny)
 library(dplyr)
 
-.scores_2526 <- if (file.exists("data/pl2526_scores.rds")) {
-  out <- readRDS("data/pl2526_scores.rds")
+.scores_2526 <- if (file.exists("data/pl2526_stints.rds")) {
+  out <- readRDS("data/pl2526_stints.rds")
+  n_rows    <- nrow(out)
+  n_players <- length(unique(out$player_id))
   # Exhibit floor: exclude small samples (fewer than 4 apps or fewer
-  # than 360 minutes) — their totals and PP90 are noise. View-only:
-  # the full table still feeds the pool's pts_2526/pp90_2526 join in
+  # than 360 minutes ACROSS THE SEASON) — their totals and PP90 are
+  # noise. View-only: the player-level table (pl2526_scores.rds) still
+  # feeds the pool's pts_2526/pp90_2526 join in
   # snapshot_pl_reference.R.
-  n_all <- nrow(out)
-  out <- out |> filter(apps >= 4, minutes >= 360)
-  .sc26_excluded <- n_all - nrow(out)
-  message("    [scores2526] loaded ", n_all, " players; showing ",
-          nrow(out), " (excluded ", .sc26_excluded,
-          " with <4 apps or <360 mins)")
+  out <- out |> filter(season_apps >= 4, season_minutes >= 360)
+  .sc26_excluded <- n_players - length(unique(out$player_id))
+  message("    [scores2526] loaded ", n_rows, " stint rows / ",
+          n_players, " players; showing ", nrow(out), " rows (excluded ",
+          .sc26_excluded, " players with <4 apps or <360 mins)")
   out
 } else {
-  message("    [scores2526] data/pl2526_scores.rds MISSING — view will ",
-          "show a placeholder. Run build_2526_scores.R.")
+  message("    [scores2526] data/pl2526_stints.rds MISSING — view will ",
+          "show a placeholder. Run build_2526_scores.R (v4).")
   .sc26_excluded <- NULL
   NULL
 }
@@ -128,14 +135,15 @@ scores_2526_view <- function() {
       p(
         class = "scores-footnote",
         "Only matches where the player was on the pitch are counted.
-         Res shows wins-draws as events and result points (GK win +5 /
-         draw +2, DEF win +2 / draw +1) in points view; Conc is goals
-         conceded while a keeper played. OG is own goals (\u22125);
-         PenSv is in-play penalty saves (+3), extracted from match
-         shotmaps.",
+         Mid-season movers appear once per club, each row covering that
+         spell (month range shown by the name). Res shows wins-draws as
+         events and result points (GK win +5 / draw +2, DEF win +2 /
+         draw +1) in points view; Conc is goals conceded while a keeper
+         played. OG is own goals (\u22125); PenSv is in-play penalty
+         saves (+3), extracted from match shotmaps.",
         if (!is.null(.sc26_excluded))
           paste0(" The table lists players with at least 4 appearances",
-                 " and 360 minutes played in 25/26 \u2014 ",
+                 " and 360 minutes played across 25/26 \u2014 ",
                  .sc26_excluded, " smaller-sample players are excluded.")
       )
     )
@@ -241,6 +249,10 @@ scores_2526_server_logic <- function(input, output, session) {
           "this.outerHTML='<span class=\"scores-badge-fallback\">%s</span>';",
           r$club_code)
       )
+      stint_tag <- if (r$n_stints > 1) {
+        tags$span(class = "scores-stint",
+                  paste0(r$stint_from, "\u2013", r$stint_to))
+      } else NULL
       cat_cells <- lapply(.sc_cats, function(cat) {
         val <- if (mode == "n") {
           if (cat$n == "wd") paste0(r$w_n, "-", r$d_n) else fmt_n(r[[cat$n]])
@@ -253,7 +265,8 @@ scores_2526_server_logic <- function(input, output, session) {
         tags$td(tags$span(class = "scores-player",
                           if (nzchar(r$first_name))
                             tags$span(class = "scores-first", r$first_name),
-                          tags$span(class = "scores-surname", r$surname))),
+                          tags$span(class = "scores-surname", r$surname),
+                          stint_tag)),
         tags$td(class = "scores-club-cell", badge),
         tags$td(class = "scores-center", r$position),
         tags$td(class = "scores-center", fmt_n(r$apps)),

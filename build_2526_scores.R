@@ -1,26 +1,40 @@
-# build_2526_scores.R (v3) -----------------------------------------------
-# Builds the bundled 2025-26 season scores exhibit:
-#   data/pl2526_scores.rds
+# build_2526_scores.R (v4) -----------------------------------------------
+# Builds the bundled 2025-26 season scores exhibit data:
+#   data/pl2526_scores.rds   — player-level season totals (UNCHANGED
+#                              schema/values vs v3; feeds the pool's
+#                              pts_2526/pp90_2526 join in
+#                              snapshot_pl_reference.R)
+#   data/pl2526_stints.rds   — NEW: stint-level rows. A mid-season
+#                              mover (e.g. Semenyo BOU -> MCI) gets one
+#                              row per club stint, each with that
+#                              stint's stats and points. Feeds the
+#                              25/26 Scores exhibit (R/scores_2526.R).
 #
-# v3 changes:
-#   - BENCH FIX: only rows with minutes_played > 0 are scored. The
-#     dataset carries a row for every squad member every match; unused
-#     subs were accruing result/clean-sheet/conceded points (Kepa: 37
-#     bench rows). The live ingest must apply the same guard.
-#   - Per-category COUNTS and POINTS stored per player, powering the
-#     events/points display toggle. Category points are asserted to
-#     sum to the engine total per player (consistency gate).
-#   - first_name/surname split (particle-aware: van/de/der/di etc.)
-#   - club_code column for badge rendering (25/26 twenty incl. the
-#     three since relegated)
+# v4 changes:
+#   - Match dates joined from the fixtures parquet (root-level files
+#     only — the player_match_stats subdirectory is a separate
+#     dataset) so stints can be ordered chronologically.
+#   - Stint construction: per player, matches ordered by date; a stint
+#     is a maximal run at one club (rle over club). Handles multiple
+#     moves / loan-and-return.
+#   - Rare events (own goals, penalty saves) attributed to the stint
+#     containing their match via (player_id, match_id) — hard-stop if
+#     any event fails to land.
+#   - Consistency gates: per-player stint totals must sum to the
+#     season total; rare-event counts must reconcile at both levels.
+#   - Mover report: every player with >1 stint is printed for review.
+#
+# v3 changes (retained):
+#   - BENCH FIX: only rows with minutes_played > 0 are scored.
+#   - Per-category COUNTS and POINTS per player; category points
+#     asserted to sum to the engine total (consistency gate).
+#   - first_name/surname split (particle-aware); club_code column.
 #
 # Scoring maths runs through the LIVE R/scoring.R engine; category
 # breakdown mirrors it and is verified against it. Own goals (-5) and
 # in-play penalty saves (+3) are joined from the rare-events CSV
 # (extract_2526_rare_events.R over the raw shotmaps) after the
-# consistency gate — the gate validates the parquet-derived categories
-# against the engine, then the two shotmap-sourced categories and the
-# final totals are layered on top.
+# consistency gate.
 #
 # Run from the pl-contest project root (no Sheets auth needed):
 #   source("build_2526_scores.R")
@@ -34,7 +48,7 @@ PARQUET_PMS   <- file.path(FOOTBALL_DATA, "parquet", "player_match_stats")
 stopifnot(dir.exists(PARQUET_PMS))
 source("R/scoring.R")
 
-message(">>> build_2526_scores (v3)")
+message(">>> build_2526_scores (v4)")
 
 pms <- open_dataset(PARQUET_PMS) |>
   filter(season == "2025_26") |>
@@ -103,6 +117,33 @@ pms <- pms |>
   filter(minutes_n > 0)
 message("    [scores] bench/no-minute rows removed: ", n_before - nrow(pms),
         " — scoring ", nrow(pms), " appearance rows")
+
+# --- 2b. Match dates (v4) -----------------------------------------------
+# From the fixtures parquet dataset (hive-partitioned sibling of
+# player_match_stats).
+fixtures <- open_dataset(file.path(FOOTBALL_DATA, "parquet", "fixtures")) |>
+  filter(season == "2025_26") |>
+  select(match_id, utc_date) |>
+  collect() |>
+  mutate(match_id   = as.character(match_id),
+         match_date = as.Date(sub("T.*", "", as.character(utc_date)))) |>
+  distinct(match_id, match_date)
+stopifnot("fixtures carry NA dates" = !anyNA(fixtures$match_date))
+
+pms <- pms |> left_join(fixtures, by = "match_id")
+if (anyNA(pms$match_date)) {
+  stop("No fixture date for ", sum(is.na(pms$match_date)),
+       " player-match row(s) — fixtures/pms match_id mismatch",
+       call. = FALSE)
+}
+
+# Stint key: one row per player-match with resolved club + date.
+stint_key <- pms |>
+  transmute(player_id = as.character(player_id), match_id,
+            club, match_date)
+dup_pm <- stint_key |> count(player_id, match_id) |> filter(n > 1)
+if (nrow(dup_pm) > 0) stop("Duplicate player-match rows in stint key",
+                           call. = FALSE)
 
 # --- 3. Side, result, conceded ------------------------------------------
 
@@ -308,4 +349,135 @@ message("    [scores] season table: ", nrow(season), " players; top: ",
 
 dir.create("data", showWarnings = FALSE)
 saveRDS(season, "data/pl2526_scores.rds")
-message(">>> build_2526_scores (v3) complete — data/pl2526_scores.rds written")
+
+# --- 8. Stint-level table (v4) -------------------------------------------
+# One row per (player, club stint). A stint is a maximal chronological
+# run at one club — a January mover gets two rows, a loan-out-and-back
+# would get three. Single-club players get exactly one stint row whose
+# numbers equal their season row.
+
+stint_assign <- stint_key |>
+  arrange(player_id, match_date, match_id) |>
+  group_by(player_id) |>
+  mutate(stint_no = with(rle(club),
+                         rep(seq_along(lengths), lengths))) |>
+  ungroup()
+
+stint_rows <- cat_rows |>
+  mutate(player_id = as.character(player_id)) |>
+  inner_join(stint_assign |> select(player_id, match_id, club,
+                                    stint_no, match_date),
+             by = c("player_id", "match_id"))
+stopifnot("stint join changed row count" =
+            nrow(stint_rows) == nrow(cat_rows))
+
+stints <- stint_rows |>
+  group_by(player_id, player_name, position, club, stint_no) |>
+  summarise(
+    apps = n(), minutes = sum(minutes),
+    stint_from = format(min(match_date), "%b"),
+    stint_to   = format(max(match_date), "%b"),
+    across(c(g_n, a_n, sh_n, sot_n, tkl_n, int_n, yc_n, rc_n,
+             cs_n, w_n, d_n, sv_n, conc_gk_n,
+             g_p, a_p, sh_p, sot_p, tkl_p, int_p, yc_p, rc_p,
+             cs_p, res_p, sv_p, conc_p), sum),
+    .groups = "drop"
+  ) |>
+  mutate(
+    total_points = round(g_p + a_p + sh_p + sot_p + tkl_p + int_p +
+                           yc_p + rc_p + cs_p + res_p + sv_p + conc_p, 1),
+    pp90         = round(ifelse(minutes > 0, total_points / minutes * 90, 0), 1)
+  )
+
+# Rare events attributed to the stint containing their match.
+ev_stint <- ev |>
+  mutate(player_id = as.character(player_id),
+         match_id  = as.character(match_id)) |>
+  left_join(stint_assign |> select(player_id, match_id, stint_no),
+            by = c("player_id", "match_id"))
+if (anyNA(ev_stint$stint_no)) {
+  print(ev_stint |> filter(is.na(stint_no)) |>
+          select(event_type, match_id, player_id, player_name))
+  stop("Rare event(s) failed to land in a stint — (player, match) not ",
+       "in the appearance data. Investigate before shipping.",
+       call. = FALSE)
+}
+ev_stint_agg <- ev_stint |>
+  group_by(player_id, stint_no) |>
+  summarise(og_n2 = sum(event_type == "own_goal"),
+            ps_n2 = sum(event_type == "pen_save"), .groups = "drop")
+
+stints <- stints |>
+  left_join(ev_stint_agg, by = c("player_id", "stint_no")) |>
+  mutate(
+    og_n = ifelse(is.na(og_n2), 0L, og_n2),
+    ps_n = ifelse(is.na(ps_n2), 0L, ps_n2),
+    og_p = og_n * -5,
+    ps_p = ps_n * 3,
+    total_points = round(total_points + og_p + ps_p, 1),
+    pp90         = round(ifelse(minutes > 0,
+                                total_points / minutes * 90, 0), 1)
+  ) |>
+  select(-og_n2, -ps_n2)
+
+# Gate: per-player stint totals must reproduce the season table exactly.
+recon <- stints |>
+  group_by(player_id) |>
+  summarise(stint_sum   = round(sum(total_points), 1),
+            stint_apps  = sum(apps),
+            stint_mins  = sum(minutes), .groups = "drop") |>
+  inner_join(season |> select(player_id, total_points, apps, minutes),
+             by = "player_id")
+bad2 <- recon |> filter(abs(stint_sum - total_points) > 0.05 |
+                          stint_apps != apps | stint_mins != minutes)
+if (nrow(bad2) > 0) {
+  print(head(bad2))
+  stop("Stint rows do not sum to season totals for ", nrow(bad2),
+       " player(s) — investigate before shipping", call. = FALSE)
+}
+stopifnot(
+  "stint own-goal total drifted" = sum(stints$og_n) == sum(season$og_n),
+  "stint pen-save total drifted" = sum(stints$ps_n) == sum(season$ps_n)
+)
+message("    [scores] stint totals == season totals for all ",
+        nrow(recon), " players \u2713")
+
+# Season-level context columns (exhibit floor is applied per PLAYER so
+# a mover's short stint isn't hidden while the long one shows).
+stints <- stints |>
+  add_count(player_id, name = "n_stints") |>
+  left_join(season |> transmute(player_id,
+                                season_apps    = apps,
+                                season_minutes = minutes),
+            by = "player_id") |>
+  mutate(club_code = unname(CLUB_CODES[club]))
+stopifnot("stint row missing club code" = !anyNA(stints$club_code))
+
+nm2 <- t(vapply(stints$player_name, split_name, character(2)))
+stints$first_name <- nm2[, 1]
+stints$surname    <- nm2[, 2]
+
+stints <- stints |> arrange(desc(total_points))
+
+movers <- stints |> filter(n_stints > 1) |>
+  arrange(player_id, stint_no)
+if (nrow(movers) > 0) {
+  message("    [scores] MID-SEASON MOVERS (", 
+          length(unique(movers$player_id)), " player(s)) — review:")
+  for (pid in unique(movers$player_id)) {
+    m <- movers |> filter(player_id == pid)
+    message("      - ", m$player_name[1], ": ",
+            paste(sprintf("%s (%s\u2013%s, %d apps, %.1f pts)",
+                          m$club_code, m$stint_from, m$stint_to,
+                          m$apps, m$total_points),
+                  collapse = " -> "))
+  }
+} else {
+  message("    [scores] no mid-season movers found")
+}
+
+saveRDS(stints, "data/pl2526_stints.rds")
+message(">>> build_2526_scores complete: ",
+        nrow(season), " players -> data/pl2526_scores.rds; ",
+        nrow(stints), " stint rows -> data/pl2526_stints.rds. ",
+        "Restart the app to pick up the exhibit.")
