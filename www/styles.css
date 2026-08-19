@@ -183,6 +183,36 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
 }
 
+/* Two-row banner: message + timer on the top row, standing notice
+   beneath. Selected via :has() rather than a modifier class on the
+   banner itself — the countdown JS reassigns banner.className on every
+   tick, so a modifier class would survive exactly one second. */
+
+.countdown-banner:has(.countdown-banner-secondary) {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.countdown-banner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.countdown-banner-secondary {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* The warn band is the one light background in the set (--wc-yellow
+   with ink text), so the secondary line has to flip to dark there or
+   it disappears. Fires from 24h before lock. */
+.banner-warn .countdown-banner-secondary {
+  color: rgba(55, 0, 60, 0.70);
+}
+
 /* --- Navigation header (sits below the banner) -------------------------- */
 
 .nav-bar {
@@ -368,6 +398,16 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--wc-radius-lg);
   padding: 22px;
   box-shadow: var(--wc-shadow-panel);
+}
+
+/* Establishes a container-query context sized by this card's own
+   rendered width (not the browser viewport) — see the pool-card
+   media rule near the pool row styles below. Needed because the page
+   layout is a fixed 50/50 split, so this card's actual width tracks
+   its own container far more than it tracks the window. */
+.pool-card {
+  container-type: inline-size;
+  container-name: pool-card;
 }
 
 .panel-card h3 {
@@ -833,6 +873,15 @@ h1, h2, h3, h4, h5, h6 {
   padding-left: 0;
 }
 
+/* Small secondary note inside a modal — e.g. the "still on the default
+   name" reminder after submitting a lineup. Uses the app's own muted
+   text token rather than Bootstrap's .text-muted, matching every other
+   quiet/secondary text treatment in the app. */
+.modal-hint {
+  color: var(--wc-text-quiet);
+  font-size: 15px;
+}
+
 /* --- My Lineups list -------------------------------------------------- */
 
 .lineup-list {
@@ -1099,6 +1148,16 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: column;
     gap: 6px;
     text-align: center;
+  }
+
+  /* The inner row stacks too on narrow phones */
+  .countdown-banner-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .countdown-banner-secondary {
+    font-size: 13px;
   }
 
   /* Panel card header — wrap if cramped */
@@ -1444,7 +1503,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .lb-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr) 44px 54px 76px;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr) 44px 54px;
   gap: 8px;
   align-items: center;
   padding: 10px 6px;
@@ -1905,7 +1964,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (max-width: 480px) {
   .lb-row {
-    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 36px 42px 56px;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 36px 42px;
     gap: 4px;
     font-size: 16px;
   }
@@ -2370,6 +2429,36 @@ h1, h2, h3, h4,
   width: 110px;
   flex: none;
   text-align: right;
+}
+
+/* --- Player pool row: hide 25/26 points data when the card is narrow ---
+   .pool-card is a container-query context (see .pool-card rule above),
+   sized by the CARD's own rendered width, not the browser viewport.
+   This matters here specifically because the page layout is a fixed
+   50/50 split (Player Pool | Your Lineup) at every width above 576px —
+   Shiny's column(width=6) is Bootstrap col-sm-6, which only stacks to
+   single-column below 576px. So the pool card never gets more than
+   ~half the window, at ANY desktop width, not just phone widths. A
+   viewport @media query can't see that: a 1400px browser window still
+   only gives this card ~650px, and a 900px window gives it ~420px —
+   both "desktop" by viewport, but the second is already too narrow for
+   the fixed-width Pos/Pts/PP90/status columns to fit alongside a
+   readable name. @container responds to the card's actual width
+   either way, so this fires correctly whether the card is narrow
+   because of a phone screen or because of a resized desktop window.
+
+   Pts 25/26 and PP90 are hidden outright below the threshold (not
+   demoted to a second line) — informational only, safe to drop; name,
+   team badge, and position stay on one line and remain fully visible,
+   since removing two fixed-width columns leaves plenty of room for
+   them without needing to stack. */
+@container pool-card (max-width: 640px) {
+  .player-pts,
+  .player-ppg,
+  .pool-colhead-pts,
+  .pool-colhead-ppg {
+    display: none;
+  }
 }
 
 /* --- 25/26 Scores: tighter type, hard alignment ------------------------ */

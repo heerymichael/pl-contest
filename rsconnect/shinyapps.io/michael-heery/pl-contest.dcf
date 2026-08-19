@@ -5,7 +5,7 @@ account: michael-heery
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17648658
-bundleId: 12333255
+bundleId: 12435853
 url: https://michael-heery.shinyapps.io/pl-contest/
 version: 1
 asMultiple: FALSE

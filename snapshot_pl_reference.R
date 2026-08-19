@@ -28,7 +28,16 @@ if (!"is_active" %in% names(players)) {
   players$is_active <- TRUE
   message("    [snapshot] is_active not in tab — synthesised TRUE for all")
 } else {
-  players$is_active <- as.logical(as.integer(players$is_active))
+  # Sheets stores real logical columns (as written by sheet_write()) as
+  # boolean cells, which come back as the TEXT "TRUE"/"FALSE" once forced
+  # to character by col_types = "c" above — NOT "1"/"0". The previous
+  # as.logical(as.integer(...)) assumed "1"/"0" and silently turned every
+  # row NA (as.integer("TRUE") is NA), which then dropped every player
+  # from the active filter in cache.R. This handles both representations
+  # and defaults anything unrecognised to FALSE rather than NA, so a
+  # scoring bug here fails closed (players missing) not open.
+  ia <- toupper(trimws(as.character(players$is_active)))
+  players$is_active <- ia %in% c("TRUE", "1")
 }
 
 # --- 25/26 informational join -------------------------------------------
@@ -43,12 +52,12 @@ norm_name <- function(x) {
 
 if (file.exists("data/pl2526_scores.rds")) {
   sc <- readRDS("data/pl2526_scores.rds")
-
+  
   # Primary: id join (api_player_id <-> scores player_id)
   sc_id <- sc |>
     transmute(api_player_id = player_id,
               pts_id = total_points, ppg_id = pp90)
-
+  
   # Fallback: normalised-name join for blank api_player_id rows
   sc_nm <- sc |>
     mutate(nn = norm_name(player_name)) |>
@@ -56,7 +65,7 @@ if (file.exists("data/pl2526_scores.rds")) {
     slice_max(minutes, n = 1, with_ties = FALSE) |>
     ungroup() |>
     transmute(nn, pts_nm = total_points, ppg_nm = pp90)
-
+  
   players <- players |>
     select(-any_of(c("pts_2526", "pp90_2526"))) |>
     mutate(nn = norm_name(name)) |>
@@ -65,9 +74,9 @@ if (file.exists("data/pl2526_scores.rds")) {
     mutate(pts_2526  = coalesce(pts_id, pts_nm),
            pp90_2526 = coalesce(ppg_id, ppg_nm)) |>
     select(-nn, -pts_id, -ppg_id, -pts_nm, -ppg_nm)
-
+  
   n_id <- sum(!is.na(players$api_player_id) & players$api_player_id != "" &
-              !is.na(players$pts_2526))
+                !is.na(players$pts_2526))
   n_all <- sum(!is.na(players$pts_2526))
   message("    [snapshot] 25/26 join: ", n_all, " of ", nrow(players),
           " pool players matched (", n_id, " by id, ",

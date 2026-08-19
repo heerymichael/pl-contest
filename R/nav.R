@@ -32,11 +32,9 @@ nav_header <- function(current_username, current_view = NULL, locked = FALSE) {
     div(
       class = "nav-bar-brand",
       tags$strong(
-        tags$span(class = "gaffer-roundel", "XV"),
-        tags$span(
-          tags$span(class = "gaffer-wordmark", "GAFFER"),
-          tags$span(class = "gaffer-sublabel", "FANTASY XV")
-        )
+        tags$img(class = "nav-brand-logo", src = "logos/epl_logo.png",
+                 alt = "Premier League"),
+        tags$span(class = "gaffer-wordmark", "PREMIER LEAGUE CONTEST")
       ),
       tags$button(
         id    = "nav-hamburger",

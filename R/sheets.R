@@ -32,7 +32,12 @@ get_contest_config <- function() {
 # protected against stale cache).
 
 get_players <- function() {
-  read_sheet_tab("players") |> filter(is_active == TRUE)
+  players <- read_sheet_tab("players")
+  # PL players tab carries no is_active column (all pool players are
+  # active); synthesise it, mirroring snapshot_pl_reference.R, so the
+  # WC-era filter is a no-op instead of a crash on live reads.
+  if (!"is_active" %in% names(players)) players$is_active <- TRUE
+  players |> filter(is_active == TRUE)
 }
 
 get_teams <- function() {

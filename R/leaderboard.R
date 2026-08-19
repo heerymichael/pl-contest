@@ -4,11 +4,11 @@
 # Scoring is LIVE: points are computed on the fly from the
 # player_match_stats tab (5-min memoised read) through the pure engine
 # in R/scoring.R — nothing is precomputed or stored, so a scoring
-# correction fixes all history on the next render. Winnings still
-# render as em-dashes (prize calculation is a separate step). If
-# scoring ever fails (e.g. an unrecognised knockout stage_name before
-# its multiplier is added), the board logs the error and renders
-# pre-scoring em-dashes rather than crashing.
+# correction fixes all history on the next render. Winnings are not
+# computed or displayed at all right now — the prize structure is
+# field-size dependent and gets finalised post-lock (see the note
+# above LB_PRIZES). If scoring ever fails, the board logs the error
+# and renders pre-scoring em-dashes rather than crashing.
 #
 # Roster privacy: rosters are hidden until the contest locks, except
 # that a logged-in user can always see their own entries' rosters
@@ -35,11 +35,12 @@ VOID_ENTRY_IDS <- c(
   "863344bd-51cc-41c6-9e1d-c22ed70b5068"
 )
 
-# Confirmed prize structure for this contest (USD), by finishing position.
-# 38 paid entries x $10 = $380 pot; top 4 places paid. 1st = 40% of the pot,
-# descending smoothly. Sterling payouts convert at $10 : £8 (see the
-# Rules -> "Prize pool" section).
-LB_PRIZES <- c(152, 102, 74, 52)
+# Prize structure is field-size dependent (see Rules -> Prize structure:
+# top 10%/15% of paid entries, tiers by field size) and can only be
+# finalised once entries lock and the paid field is known. Winnings are
+# deliberately NOT computed or displayed yet — see lb_entry_winnings()
+# below, removed for now. Re-add once the structure is confirmed
+# post-lock.
 
 # Total points per entry, aligned to the rows of `entries`.
 # `scored` is the output of score_player_match_stats(), or NULL when no
@@ -55,45 +56,8 @@ lb_entry_points <- function(entries, scored, all_picks) {
   ifelse(is.na(out), 0, out)
 }
 
-# Current winnings per entry, aligned to the rows of `entries` (which the
-# caller has already sorted by descending points). USD, formatted to 2dp as
-# "$X.XX" for paying positions, NA for the rest (renders the muted dash).
-#
-# Ties: a group level on points occupies consecutive finishing positions; the
-# prize money for ALL the positions the group spans is pooled and split
-# equally between them — e.g. four entries tied for 2nd occupy places 2-5,
-# pooling ($102 + $74 + $52 + $0) and paying a quarter each.
-lb_entry_winnings <- function(entries) {
-  n   <- nrow(entries)
-  out <- rep(NA_character_, n)
-  pts <- entries$points
-  has <- !is.na(pts)
-  if (!any(has)) return(out)
-  
-  p         <- round(pts[has], 1)          # ranked rows, already sorted desc
-  m         <- length(p)
-  comp_rank <- match(p, p)                 # ties share the top position
-  
-  # Prize at each finishing position 1..m (0 beyond the paid places).
-  prize_at <- numeric(m)
-  paid_n   <- min(length(LB_PRIZES), m)
-  prize_at[seq_len(paid_n)] <- LB_PRIZES[seq_len(paid_n)]
-  
-  per_row <- numeric(m)
-  for (r in unique(comp_rank)) {
-    idx          <- which(comp_rank == r)  # rows in this tie group
-    k            <- length(idx)
-    occupied     <- r:(r + k - 1)          # finishing positions they span
-    per_row[idx] <- sum(prize_at[occupied]) / k
-  }
-  
-  out[has] <- ifelse(
-    per_row > 0,
-    paste0("$", formatC(per_row, format = "f", digits = 2)),
-    NA_character_
-  )
-  out
-}
+# lb_entry_winnings() removed — see note above LB_PRIZES. Winnings are not
+# computed or displayed until the prize structure is confirmed post-lock.
 
 # Live players per entry — how many of the roster's players are on
 # nations still in the tournament, per ELIMINATED_TEAMS above.
@@ -332,7 +296,6 @@ leaderboard_server_logic <- function(input, output, session,
     entries <- entries |>
       arrange(desc(points), display_name, entry_name)
     entries$rank_label <- lb_rank_labels(entries$points)
-    entries$winnings   <- lb_entry_winnings(entries)
     entries$live       <- lb_entry_live(entries, all_picks,
                                         get_players_all_local())
     
@@ -368,7 +331,7 @@ leaderboard_server_logic <- function(input, output, session,
     rows <- lb_data()
     if (is.null(rows)) return(NULL)
     if (nrow(rows) == 0 || all(is.na(rows$points))) {
-      span("Scoring goes live after Matchday 1 \u2014 points and winnings
+      span("Scoring goes live after Matchday 1 \u2014 points
             will appear here as matches are scored.")
     } else {
       span("Scores may be provisional while match stats are collated.")
@@ -397,8 +360,10 @@ leaderboard_server_logic <- function(input, output, session,
       span(class = "lb-manager", "Manager"),
       span(class = "lb-entry",   "Entry"),
       span(class = "lb-live",    "Live"),
-      span(class = "lb-pts",     "Pts"),
-      span(class = "lb-prize",   "Winnings")
+      span(class = "lb-pts",     "Pts")
+      # Winnings column removed for now — prize structure is
+      # field-size dependent, confirmed post-lock. See note above
+      # LB_PRIZES in the reactive section.
     )
     
     row_uis <- lapply(seq_len(nrow(rows)), function(i) {
@@ -419,10 +384,8 @@ leaderboard_server_logic <- function(input, output, session,
           span(class = "lb-live-n", lb_fmt_int(r$live)),
           span(class = "lb-live-d", paste0("/", r$roster_n))
         ),
-        span(class = "lb-pts",   lb_fmt_pts(r$points)),
-        span(class = paste("lb-prize",
-                           if (is.na(r$winnings)) "lb-prize-none" else "lb-prize-paid"),
-             if (is.na(r$winnings)) "\u2014" else r$winnings)
+        span(class = "lb-pts",   lb_fmt_pts(r$points))
+        # Winnings cell removed for now — see header comment above.
       )
     })
     

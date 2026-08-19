@@ -51,36 +51,70 @@ locked_view <- function() {
   )
 }
 
-# Countdown banner — pre-lock it shows the lock rule (left) and the live
-# timer chip (right, driven by the countdown JS in app.R). Post-lock the
-# countdown is over, so it becomes a static notice in the same neon band,
-# centred, with no timer. With no timer element present the countdown JS
-# no-ops (tick() bails when the timer span is absent), so it never repaints
-# this state.
+# Standing announcement of the Gameweek 3 transfer window, shown as a
+# quiet second line beneath the live countdown. Deliberately copy-only:
+# no dates, no counts, no countdown of its own — the full phase-aware
+# treatment (countdown to window open, then to window close) lands with
+# the transfer-window config in TRANSFER_WINDOW.md batch 3. Until that
+# config exists there is nothing to count down to.
+BANNER_TRANSFER_NOTICE <-
+  "A short transfer window will open between Gameweeks 2 and 3"
+
+# Post-lock banner copy. Replaces the pre-lock countdown once lock_at
+# passes, and carries the transfer-window announcement forward — without
+# it, the notice disappears at exactly the moment entrants can no longer
+# edit and most want to know what their options are.
+BANNER_LOCKED_NOTICE <-
+  paste("Contest locked \u2014 rosters are fixed until the transfer window",
+        "between Gameweeks 2 and 3")
+
+# Countdown banner — pre-lock it shows the lock rule and the live timer
+# chip (driven by the countdown JS in app.R) on one row, with the
+# transfer-window notice on a second, quieter row below. Post-lock the
+# countdown is over, so it becomes a static notice in the same neon
+# band, centred, with no timer. With no timer element present the
+# countdown JS no-ops (tick() bails when the timer span is absent), so
+# it never repaints this state.
+#
+# Layout note: the stacked two-row form is selected in CSS via
+# :has(.countdown-banner-secondary), NOT via a modifier class on the
+# banner. The countdown JS reassigns banner.className wholesale on
+# every tick, so any modifier class added here would be wiped one
+# second later. :has() keys off a child instead and survives.
 countdown_banner_ui <- function(locked = FALSE) {
   if (locked) {
-    # Temporary post-lock notice. Update/remove once the payout
-    # structure is confirmed.
+    # Single centred line, no timer. Kept as one span rather than the
+    # two-row pre-lock structure so the :has() stacking rule doesn't
+    # fire and fight banner-notice's centring. With no timer element
+    # present the countdown JS bails before touching className, so this
+    # state is never repainted.
     return(div(
       id    = "countdown-banner",
       class = "countdown-banner banner-neutral banner-notice",
       tags$span(
         class = "countdown-banner-message",
-        "Final payments are being chased — the payout structure will be confirmed once complete, before the end of Matchday 1."
+        BANNER_LOCKED_NOTICE
       )
     ))
   }
   div(
     id    = "countdown-banner",
     class = "countdown-banner banner-neutral",
-    tags$span(
-      class = "countdown-banner-message",
-      "Lineups lock at the opening kickoff"
+    div(
+      class = "countdown-banner-row",
+      tags$span(
+        class = "countdown-banner-message",
+        "Lineups lock at the opening kickoff"
+      ),
+      tags$span(
+        id    = "countdown-banner-timer",
+        class = "countdown-banner-timer",
+        "—"   # placeholder until JS populates
+      )
     ),
     tags$span(
-      id    = "countdown-banner-timer",
-      class = "countdown-banner-timer",
-      "—"   # placeholder until JS populates
+      class = "countdown-banner-secondary",
+      BANNER_TRANSFER_NOTICE
     )
   )
 }

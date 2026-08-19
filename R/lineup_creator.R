@@ -40,7 +40,7 @@ lineup_picker_ui <- function(mode) {
       column(
         width = 6,
         div(
-          class = "panel-card",
+          class = "panel-card pool-card",
           actionButton(
             picker_id(mode, "pool_back"),
             label = HTML("&larr; Back to lineup"),
@@ -1077,7 +1077,7 @@ lineup_picker_server_logic <- function(input, output, session,
         return(list(ok = FALSE,
                     error = paste0("You already have an entry called \"", name, "\".")))
       }
-      return(list(ok = TRUE, name = name))
+      return(list(ok = TRUE, name = name, is_default = FALSE))
     }
     
     matches  <- regmatches(existing_names, regexpr("^Lineup \\d+$", existing_names))
@@ -1085,15 +1085,16 @@ lineup_picker_server_logic <- function(input, output, session,
     used_nums <- suppressWarnings(as.integer(nums_str))
     used_nums <- used_nums[!is.na(used_nums)]
     next_n <- if (length(used_nums) == 0) 1L else max(used_nums) + 1L
-    list(ok = TRUE, name = paste("Lineup", next_n))
+    list(ok = TRUE, name = paste("Lineup", next_n), is_default = TRUE)
   }
   
-  open_submit_confirm <- function(resolved_name) {
-    session$userData$pending_entry_name <- resolved_name
+  open_submit_confirm <- function(resolved) {
+    session$userData$pending_entry_name       <- resolved$name
+    session$userData$pending_entry_is_default <- resolved$is_default
     showModal(modalDialog(
       title = "Submit this lineup?",
       tagList(
-        p(tags$strong("Lineup name: "), resolved_name),
+        p(tags$strong("Lineup name: "), resolved$name),
         p("Once submitted, your lineup is final until the contest lock time. ",
           "You can edit it any time before lock from My Lineups.")
       ),
@@ -1124,7 +1125,7 @@ lineup_picker_server_logic <- function(input, output, session,
     if (is.null(user)) return()
     
     cfg <- config_data()
-    max_entries <- cfg$max_entries_per_user %||% 10
+    max_entries <- cfg$max_entries_per_user %||% 5   # Rules page: "Up to 5 entries"
     n_existing <- count_entries_for_user(user$email)
     if (n_existing >= max_entries) {
       showNotification(
@@ -1141,7 +1142,7 @@ lineup_picker_server_logic <- function(input, output, session,
       return()
     }
     
-    open_submit_confirm(resolved$name)
+    open_submit_confirm(resolved)
   }
   
   observeEvent(input[[iid("submit_lineup")]], {
@@ -1189,7 +1190,8 @@ lineup_picker_server_logic <- function(input, output, session,
     }
     
     user <- current_user()
-    name <- session$userData$pending_entry_name
+    name       <- session$userData$pending_entry_name
+    is_default <- isTRUE(session$userData$pending_entry_is_default)
     if (is.null(user) || is.null(name)) {
       showNotification("Something went wrong — please try again.",
                        type = "error")
@@ -1210,7 +1212,8 @@ lineup_picker_server_logic <- function(input, output, session,
     if (result$ok) {
       selected_ids(integer(0))
       updateTextInput(session, iid("entry_name"), value = "")
-      session$userData$pending_entry_name <- NULL
+      session$userData$pending_entry_name       <- NULL
+      session$userData$pending_entry_is_default <- NULL
       session$sendCustomMessage("wc_clear_ls", list(key = "wc_lineup_state"))
       view_state("lineups")
       
@@ -1218,13 +1221,18 @@ lineup_picker_server_logic <- function(input, output, session,
         title = "Lineup submitted",
         tagList(
           p(paste0("Your lineup \"", name, "\" has been submitted.")),
+          if (is_default) {
+            p(class = "modal-hint",
+              "This entry is still named \"", name, "\" \u2014 you can give it ",
+              "a proper name any time before lock from My Lineups.")
+          },
           p("Pay your entry fee on Revolut to complete entry into the contest. ",
-            "Entry monies are held by Revolut (an independent third party) — ",
-            "funds are not held by the organiser, and the contest takes no rake.")
+            "Entries are paid directly into the organiser's Revolut account \u2014 ",
+            "the contest takes no rake, so 100% of entries go into the prize pool.")
         ),
         footer = tagList(
           modalButton("Done"),
-          payment_link(label = "Pay via Revolut →", class = "btn btn-primary")
+          payment_link(label = "Pay via Revolut \u2192", class = "btn btn-primary")
         ),
         easyClose = TRUE
       ))
