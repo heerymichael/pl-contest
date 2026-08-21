@@ -21,7 +21,7 @@ my_lineups_view <- function() {
       span(class = "payment-banner-text",
            "Entries are paid separately via Revolut."),
       payment_link(label = "Pay via Revolut →",
-                     class = "btn btn-primary btn-sm payment-banner-btn")
+                   class = "btn btn-primary btn-sm payment-banner-btn")
     ),
     uiOutput("my_lineups_list"),
     div(
@@ -53,6 +53,13 @@ my_lineups_server_logic <- function(input, output, session,
     rows |> arrange(created_at)
   })
   
+  # Deliberately a LIVE read, not get_picks_for_entry_local().
+  # roster_picks is writable state and the contest snapshot is only
+  # valid post-lock — serving the editor from it pre-lock would load a
+  # stale roster and, worse, set the dirty-tracking baseline from stale
+  # data, so a save could silently revert an earlier edit. The player
+  # join inside get_picks_for_entry() is served locally; only the picks
+  # themselves cost a round-trip.
   current_lineup_picks <- reactive({
     eid <- selected_lineup_id()
     if (is.null(eid)) return(integer(0))

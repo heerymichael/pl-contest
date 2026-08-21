@@ -163,6 +163,26 @@ lineup_picker_server_logic <- function(input, output, session,
     ui_ready(isolate(ui_ready()) + 1L)
   }, once = TRUE)
   
+  # The same problem recurs on every login and logout. current_user()
+  # changing re-renders output$page, which destroys and recreates every
+  # uiOutput in the picker. The pre-warmed outputs below aren't
+  # invalidated by that — ui_ready is unchanged, players/teams are
+  # cached constants, selected_ids hasn't moved — so the freshly-bound
+  # elements never receive a value and the spinner-wrapped panels
+  # (player_pool_ui, roster_ui) sit spinning indefinitely.
+  #
+  # Re-arm the one-shot bump on each auth change. Registering it inside
+  # onFlushed (rather than bumping directly) is load-bearing for the
+  # same reason as the startup case: the bump must land AFTER the flush
+  # that re-rendered the shell, or the values arrive before the client
+  # has bound the new elements and are dropped again.
+  observeEvent(current_user(), {
+    message("    [", mode, "] auth change — re-arming ui_ready bump")
+    session$onFlushed(function() {
+      ui_ready(isolate(ui_ready()) + 1L)
+    }, once = TRUE)
+  }, ignoreInit = TRUE, ignoreNULL = FALSE)
+  
   # Mobile-only state: drives slot-click → pool → pick → back-to-lineup
   # flow. Set regardless of viewport; desktop CSS ignores it.
   mobile_view         <- reactiveVal("lineup")   # "lineup" | "pool"

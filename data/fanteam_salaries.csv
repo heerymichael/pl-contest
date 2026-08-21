@@ -9,7 +9,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700624,Calafiori,Riccardo,ARS,expected,defender,6
 1131482,4700625,Timber,Jurriën,ARS,injured,defender,6.5
 1131482,4700626,Arrizabalaga,Kepa,ARS,unexpected,goalkeeper,5.5
-1131482,4700627,Lewis-Skelly,Myles,ARS,possible,defender,5.5
+1131482,4700627,Lewis-Skelly,Myles,ARS,expected,defender,5.5
 1131482,4700628,Ødegaard,Martin,ARS,expected,midfielder,7
 1131482,4700629,Merino,Mikel,ARS,unexpected,midfielder,5.5
 1131482,4700630,Vieira,Fábio,ARS,unexpected,midfielder,5.5
@@ -19,8 +19,8 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700634,Zubimendi,Martín,ARS,possible,midfielder,5.5
 1131482,4700635,Rice,Declan,ARS,expected,midfielder,7
 1131482,4700636,Martinelli,Gabriel,ARS,unexpected,midfielder,6.5
-1131482,4700637,Saka,Bukayo,ARS,possible,midfielder,10
-1131482,4700639,Madueke,Noni,ARS,expected,midfielder,6.5
+1131482,4700637,Saka,Bukayo,ARS,expected,midfielder,10
+1131482,4700639,Madueke,Noni,ARS,possible,midfielder,6.5
 1131482,4700640,Dowman,Max,ARS,unexpected,midfielder,5
 1131482,4700641,Jesus,Gabriel,ARS,unexpected,forward,5.5
 1131482,4700642,Havertz,Kai,ARS,expected,forward,8
@@ -43,7 +43,6 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700660,Aït-Nouri,Rayan,MCI,possible,defender,5.5
 1131482,4700661,O'Reilly,Nico,MCI,expected,defender,6.5
 1131482,4700662,Dias ,Rúben,MCI,expected,defender,6
-1131482,4700664,Reijnders,Tijjani,MCI,unexpected,midfielder,5.5
 1131482,4700665,Bettinelli,Marcus,MCI,unexpected,goalkeeper,5
 1131482,4700666,Grealish,Jack,MCI,unexpected,midfielder,6.5
 1131482,4700667,Khusanov,Abdukodir,MCI,expected,defender,5.5
@@ -120,7 +119,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700742,Adarabioyo,Tosin,CHE,unexpected,defender,4.5
 1131482,4700743,Sánchez,Robert,CHE,expected,goalkeeper,5
 1131482,4700744,Disasi,Axel,CHE,unexpected,defender,4.5
-1131482,4700745,Anselmino,Aarón,CHE,injured,defender,4.5
+1131482,4700745,Anselmino,Aarón,CHE,unexpected,defender,4.5
 1131482,4700746,Penders,Mike,CHE,unexpected,goalkeeper,4.5
 1131482,4700747,Colwill ,Levi,CHE,expected,defender,5
 1131482,4700749,Denner,Denner,CHE,unexpected,defender,4.5
@@ -141,7 +140,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700764,Neto ,Pedro,CHE,expected,midfielder,7.5
 1131482,4700765,Delap,Liam,CHE,unexpected,forward,6.5
 1131482,4700766,Fofana,David Datro ,CHE,unexpected,forward,5
-1131482,4700767,Emegha ,Emmanuel,CHE,injured,forward,6
+1131482,4700767,Emegha ,Emmanuel,CHE,unexpected,forward,6
 1131482,4700768,Jackson,Nicolas,CHE,unexpected,forward,7
 1131482,4700769,Guiu,Marc,CHE,unexpected,forward,5.5
 1131482,4700770,Kinský,Antonín,TOT,expected,goalkeeper,5
@@ -188,7 +187,6 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700821,Cissé,Modou Kéba ,AVL,unexpected,defender,4.5
 1131482,4700822,McGinn,John,AVL,expected,midfielder,6
 1131482,4700823,Barkley,Ross,AVL,expected,midfielder,5
-1131482,4700824,Nedeljkovic,Kosta,AVL,unexpected,defender,4.5
 1131482,4700825,Buendía,Emiliano,AVL,expected,midfielder,6
 1131482,4700829,Maatsen,Ian,AVL,expected,defender,5
 1131482,4700831,Guessand,Evann,AVL,possible,midfielder,5.5
@@ -198,7 +196,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700835,Bailey,Leon,AVL,unexpected,midfielder,5
 1131482,4700836,Alysson,Alysson,AVL,unexpected,midfielder,5
 1131482,4700837,Abraham,Tammy,AVL,expected,forward,6
-1131482,4700838,Guimarães,Bruno,ARS,expected,midfielder,7
+1131482,4700838,Guimarães,Bruno,ARS,possible,midfielder,7
 1131482,4700840,Cordero,Antoñito,NEW,unexpected,midfielder,4.5
 1131482,4700841,Burn,Dan,NEW,possible,defender,4.5
 1131482,4700842,Thiaw,Malick,NEW,expected,defender,4.5
@@ -212,7 +210,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700850,Schär,Fabian,NEW,unexpected,defender,4
 1131482,4700851,Willock,Joe,NEW,unexpected,midfielder,4.5
 1131482,4700852,Ramsey,Jacob,NEW,expected,midfielder,5
-1131482,4700853,Livramento ,Tino,NEW,unexpected,defender,4.5
+1131482,4700853,Livramento ,Tino,NEW,injured,defender,4.5
 1131482,4700854,Botman,Sven,NEW,expected,defender,4.5
 1131482,4700856,Touré,Bazoumana,NEW,possible,midfielder,6
 1131482,4700857,Elanga,Anthony,NEW,expected,midfielder,5.5
@@ -297,7 +295,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700947,Petrovic,Djordje,BOU,expected,goalkeeper,4.5
 1131482,4700948,Akinmboni,Matai,BOU,unexpected,defender,4
 1131482,4700949,Aarons,Max,BOU,unexpected,defender,4
-1131482,4700950,Adli,Amine,BOU,possible,midfielder,5
+1131482,4700950,Adli,Amine,BOU,injured,midfielder,5
 1131482,4700951,Rayan,Rayan,BOU,expected,midfielder,6.5
 1131482,4700952,Gannon-Doak,Ben,BOU,unexpected,midfielder,4.5
 1131482,4700953,Evanilson,Evanilson,BOU,expected,forward,6
@@ -307,7 +305,6 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700958,Perri,Lucas,LEE,unexpected,goalkeeper,4.5
 1131482,4700959,Cairns,Alex,LEE,unexpected,goalkeeper,4
 1131482,4700960,Byram,Sam,LEE,unexpected,defender,4
-1131482,4700961,Bornauw,Sebastiaan,LEE,unexpected,defender,4
 1131482,4700963,Justin,James,LEE,expected,defender,4.5
 1131482,4700964,Crew,Charlie,LEE,unexpected,midfielder,4.5
 1131482,4700965,Gudmundsson,Gabriel,LEE,injured,defender,4.5
@@ -325,7 +322,6 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4700978,Gnonto,Wilfried,LEE,injured,midfielder,5
 1131482,4700980,James,Daniel,LEE,unexpected,midfielder,5
 1131482,4700981,Calvert-Lewin,Dominic,LEE,expected,forward,7
-1131482,4700982,Piroe,Joël,LEE,unexpected,forward,5
 1131482,4700983,Joseph ,Mateo,LEE,injured,forward,5
 1131482,4700984,Nmecha,Lukas,LEE,unexpected,forward,6
 1131482,4700985,Gelhardt,Joe,HUL,injured,midfielder,5.5
@@ -373,7 +369,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4701027,Hutchinson ,Omari,NFO,unexpected,midfielder,6
 1131482,4701028,Williams,Neco,NFO,expected,defender,5
 1131482,4701029,Sels,Matz,NFO,expected,goalkeeper,4.5
-1131482,4701031,Yates ,Ryan,NFO,unexpected,midfielder,4.5
+1131482,4701031,Yates ,Ryan,NFO,injured,midfielder,4.5
 1131482,4701032,Bakwa,Dilane,NFO,unexpected,midfielder,5
 1131482,4701033,Kalimuendo,Arnaud,NFO,unexpected,forward,5.5
 1131482,4701034,Wood ,Chris,NFO,possible,forward,5
@@ -456,7 +452,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4701117,Semedo,Luís,SUN,unexpected,forward,5
 1131482,4701119,Bidwell,Jake,CVC,unexpected,defender,4
 1131482,4701120,Dovin,Oliver,CVC,unexpected,goalkeeper,4
-1131482,4701121,Sakamoto,Tatsuhiro,CVC,possible,midfielder,5
+1131482,4701121,Sakamoto,Tatsuhiro,CVC,expected,midfielder,5
 1131482,4701122,Brau,Miguel Ángel ,CVC,unexpected,defender,4
 1131482,4701123,Onyeka,Frank,CVC,expected,midfielder,4.5
 1131482,4701124,Torp,Victor,CVC,possible,midfielder,5
@@ -474,7 +470,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4701136,van Ewijk,Milan,CVC,expected,defender,4.5
 1131482,4701137,Mason-Clark,Ephron,CVC,unexpected,midfielder,5.5
 1131482,4701138,Rudoni,Jack,CVC,unexpected,midfielder,5.5
-1131482,4701139,Thomas-Asante,Brandon,CVC,expected,midfielder,6
+1131482,4701139,Thomas-Asante,Brandon,CVC,possible,midfielder,6
 1131482,4701141,Wright,Haji,CVC,injured,forward,6
 1131482,4701143,Simms,Ellis,CVC,expected,forward,5.5
 1131482,4701144,Matusiwa,Azor,IPS,unexpected,midfielder,4.5
@@ -497,7 +493,6 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4701166,Egeli,Sindre Walle ,IPS,possible,midfielder,5
 1131482,4701167,Akpom,Chuba,IPS,unexpected,forward,5
 1131482,4701168,Al-Hamadi,Ali,IPS,unexpected,forward,5
-1131482,4701169,Hirst,George,IPS,possible,forward,5.5
 1131482,4701170,Butland,Jack,HUL,injured,goalkeeper,4.5
 1131482,4701171,Jacob,Matty,HUL,unexpected,defender,4
 1131482,4701172,Drameh,Cody,HUL,unexpected,defender,4
@@ -522,7 +517,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4701196,Anthony,Jaidon,BRE,unexpected,midfielder,6
 1131482,4701197,Wilson,Harry,LEE,expected,midfielder,7
 1131482,4701198,Emersonn,Emersonn,IPS,expected,forward,5.5
-1131482,4701263,Steur,Sean,NEW,possible,midfielder,4.5
+1131482,4701263,Steur,Sean,NEW,unexpected,midfielder,4.5
 1131482,4701264,Meslier,Illan,ARS,unexpected,goalkeeper,5
 1131482,4701265,Wilson,Callum,BRE,unexpected,forward,5.5
 1131482,4701266,Mingueza,Óscar,CRY,possible,defender,4.5
@@ -577,3 +572,7 @@ Tournament,PlayerID,Name,FName,Club,Lineup,Position,Price
 1131482,4714794,Dedic,Amar,NEW,expected,defender,4.5
 1131482,4715732,David,Promise,BHA,unexpected,forward,5.5
 1131482,4715733,Gozo,Zavier,CRY,unexpected,midfielder,5
+1131482,4717069,Suzuki,Zion,AVL,unexpected,goalkeeper,5
+1131482,4717086,Ruggeri,Matteo,AVL,refuted,defender,5
+1131482,4717103,Chérif,Sidiki,CVC,refuted,forward,5
+1131482,4717240,Elvedi,Nico,LEE,refuted,defender,4.5

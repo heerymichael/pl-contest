@@ -143,6 +143,14 @@ save_roster_picks <- function(entry_id, picks) {
 
 # Return the picks for a single entry, joined with player info.
 # Output columns: player_id, name, team, position.
+#
+# The picks themselves are a live read (roster_picks is writable state).
+# The player join is served from the local RDS snapshot via
+# get_players_all_local() — players is static reference data, so reading
+# the 580-row tab from Sheets on every call was a second full round-trip
+# on the critical path with nothing to show for it. Using the *_all_local
+# variant (not the active-only one) also means a pick pointing at a
+# deactivated player still resolves to a name instead of going NA.
 get_picks_for_entry <- function(entry_id) {
   message(">>> get_picks_for_entry entry_id=", entry_id)
   all_picks <- read_sheet_tab("roster_picks")
@@ -153,8 +161,11 @@ get_picks_for_entry <- function(entry_id) {
                   team = character(0), position = character(0)))
   }
   
-  players <- get_players()
+  players <- get_players_all_local()
   entry_picks |>
+    # read_sheet() returns player_id as double; the snapshot stores it as
+    # integer. Coerce before the join so the key types match exactly.
+    mutate(player_id = as.integer(player_id)) |>
     select(player_id) |>
     left_join(players |> select(player_id, name, team, position),
               by = "player_id")

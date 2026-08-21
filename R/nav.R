@@ -174,9 +174,8 @@ rules_view <- function() {
       ),
       p(class = "rules-body",
         "Your entry's total is the sum of its optimal-XI points across all
-         19 gameweeks. There is nothing to submit weekly, no captains, no
-         transfers, and no benching decisions — the best XI is always
-         chosen for you."),
+         19 gameweeks. There is nothing to submit weekly, no captains, and
+         no benching decisions — the best XI is always chosen for you."),
       rules_item("Double gameweeks.",
                  "If a player has more than one fixture in a gameweek, their points
          for that gameweek are the sum across all of their fixtures, banked
@@ -193,9 +192,9 @@ rules_view <- function() {
       span(class = "rules-lock-chip", "Locks at kickoff of the opening fixture"),
       p(class = "rules-body",
         "Entries lock at kickoff of the opening fixture of the 2026/27
-         season (Arsenal v Coventry City, 21 August 2026). After lock, no
-         further edits are possible — rosters are fixed for all 19
-         gameweeks.")
+         season (Arsenal v Coventry City, 21 August 2026). After lock your
+         roster is fixed, with one exception: a short transfer window
+         before Gameweek 3, described below.")
     ),
     
     # The player pool ---------------------------------------------------
@@ -205,17 +204,20 @@ rules_view <- function() {
       p(class = "rules-body",
         "The player pool is refreshed daily during the final week before
          the season starts, so club listings reflect completed transfers
-         as closely as possible. The pool is frozen at lock — players who
-         join the Premier League after lock are not added.")
+         as closely as possible. It is refreshed once more before the
+         Gameweek 3 transfer window opens, so players who arrive in the
+         Premier League before the summer window shuts can be selected
+         during it. After that window closes the pool is frozen for the
+         rest of the contest.")
     ),
     
     # Transfers after lock (GW1-3) --------------------------------------
     div(
       class = "panel-card rules-section",
-      div(class = "rules-section-label", "Transfers after lock (Gameweeks 1–3)"),
+      div(class = "rules-section-label", "Transfers after lock (Gameweeks 1–2)"),
       p(class = "rules-body",
         "The summer transfer window closes after the season begins, so a
-         player you own may change clubs during Gameweeks 1–3."),
+         player you own may change clubs during Gameweeks 1 and 2."),
       rules_item("Club clashes.",
                  "If one of your players transfers to a club where you already hold
          a player, your squad would break the max-one-per-club rule. When
@@ -225,13 +227,51 @@ rules_view <- function() {
          left."),
       rules_item("Automatic and final.",
                  "Points already scored by the dropped player stand; the replacement
-         scores from the substitution onward. Before lock you are free to
-         edit over any substitution — after lock the substitution is
-         final. Check the transfer news before you lock in."),
+         scores from the substitution onward. These substitutions are
+         forced, not chosen — they do not count against your two Gameweek
+         3 transfers."),
       rules_item("Leaving the league.",
                  "A player who leaves the Premier League entirely stays on your
-         roster but stops accumulating points — like any non-featuring
-         player, bestball simply never picks him.")
+         roster but stops accumulating points — bestball simply never
+         picks him. You can replace him in the Gameweek 3 window.")
+    ),
+    
+    # The Gameweek 3 transfer window (RULE CHANGE) ----------------------
+    div(
+      class = "panel-card panel-card-alert rules-section",
+      div(
+        class = "rules-flag-row",
+        span(class = "rules-flag", "Rule change"),
+        div(class = "rules-section-label",
+            "Two transfers, once, before Gameweek 3")
+      ),
+      div(
+        class = "rules-pill-row",
+        rules_pill("Opens Thu 3 Sep ·",  "9:00am"),
+        rules_pill("Closes Fri 4 Sep ·", "7:00pm"),
+        rules_pill("Maximum ·",          "2 transfers")
+      ),
+      p(class = "rules-body",
+        "Entries lock on 21 August, but the summer transfer window does not
+         shut until 1 September. Players you picked may move clubs in
+         between, and players worth picking may arrive after you are locked
+         in. This window is a short chance to reflect those moves. It is
+         not a free hit."),
+      rules_item("Up to two changes.",
+                 "You may finish the window with at most two players different from
+         the squad you locked in. Swap a player out and back in again and
+         it costs you nothing — only the difference between your locked
+         squad and your final one counts."),
+      rules_item("Like for like.",
+                 "Every transfer must be same-position, and the incoming player's
+         club must not already be on your roster. Your squad still has to
+         be 2 GK / 5 DEF / 5 MID / 3 FWD with one player per club."),
+      rules_item("From Gameweek 3.",
+                 "Points banked by an outgoing player in Gameweeks 1 and 2 stand.
+         The incoming player scores from Gameweek 3 onward."),
+      rules_item("Use them or lose them.",
+                 "Unused transfers expire when the window closes. There are no
+         further transfers for the rest of the contest.")
     ),
     
     # Scoring ----------------------------------------------------------
@@ -317,14 +357,15 @@ rules_view <- function() {
          are confirmed 48 hours after the last Gameweek 19 fixture, after
          which they are fixed for prize purposes."),
       rules_item("Positions.",
-                 "Player positions as listed in the app at lock time are final for
-         scoring purposes, regardless of where a player actually plays."),
+                 "Player positions as listed in the app when you select a player are
+         final for scoring purposes, regardless of where he actually
+         plays."),
       rules_item("Withdrawals.",
-                 "There are no replacements after lock for any reason — injury,
-         suspension, or non-selection. Players remain on your roster and
-         simply score whatever they score. The only exception is the
-         automatic club-clash substitution described under Transfers
-         after lock.")
+                 "There are no replacements after lock for injury, suspension, or
+         non-selection. Players remain on your roster and simply score
+         whatever they score. The two exceptions are the automatic
+         club-clash substitution and the Gameweek 3 transfer window, both
+         described above.")
     ),
     
     # Leaderboard ------------------------------------------------------

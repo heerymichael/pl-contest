@@ -1223,6 +1223,36 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 18px;
 }
 
+/* Rule-change treatment: magenta border plus a flag pill on the label
+   row. Used sparingly — one section at a time — so it keeps meaning
+   something. Full border on all sides, so the card's radius still
+   applies. */
+.panel-card-alert {
+  border: 2px solid var(--wc-coral);
+}
+
+.rules-flag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rules-flag-row .rules-section-label {
+  margin-bottom: 0;
+}
+
+.rules-flag {
+  flex: none;
+  background: var(--wc-coral);
+  color: #fff;
+  font: 800 13px var(--wc-font-display);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
 .rules-section-label {
   font-size: 16px;
   font-weight: 800;
