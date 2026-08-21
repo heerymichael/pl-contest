@@ -1,5 +1,6 @@
 # Leaderboard: ranked list of all entries (left) with a click-through
-# roster panel (right) showing the selected entry's 11 players.
+# squad panel (right) showing the selected entry's 15 players on the
+# banded pitch view, with a gameweek selector above it.
 #
 # Scoring is LIVE: points are computed on the fly from the
 # player_match_stats tab (5-min memoised read) through the pure engine
@@ -20,12 +21,6 @@ library(shiny)
 library(dplyr)
 
 # --- Scoring (wired to R/scoring.R over player_match_stats) -------------
-
-# Nations eliminated from the tournament, by short code. Updated MANUALLY
-# by the commissioner as teams exit (group-stage exits onward), e.g.
-# ELIMINATED_TEAMS <- c("RSA", "CZE"). Drives the Live column only —
-# scoring is unaffected (eliminated players simply stop accruing rows).
-ELIMINATED_TEAMS <- c()
 
 # Entries voided at lock (unpaid). Removed from the leaderboard, the
 # ranking, and prize allocation — per the rules, void entries don't count
@@ -58,19 +53,6 @@ lb_entry_points <- function(entries, scored, all_picks) {
 
 # lb_entry_winnings() removed — see note above LB_PRIZES. Winnings are not
 # computed or displayed until the prize structure is confirmed post-lock.
-
-# Live players per entry — how many of the roster's players are on
-# nations still in the tournament, per ELIMINATED_TEAMS above.
-# Aligned to the rows of `entries`.
-lb_entry_live <- function(entries, all_picks, players) {
-  live_counts <- all_picks |>
-    left_join(players |> select(player_id, team), by = "player_id") |>
-    group_by(entry_id) |>
-    summarise(live = sum(!team %in% ELIMINATED_TEAMS), .groups = "drop")
-  out <- live_counts$live[match(as.character(entries$entry_id),
-                                as.character(live_counts$entry_id))]
-  ifelse(is.na(out), 0L, as.integer(out))
-}
 
 # Per-player aggregate stats for a roster: one row per pick, same order
 # as `picks`. `scored` as above; NULL renders pre-scoring em-dashes,
@@ -210,7 +192,7 @@ leaderboard_view <- function() {
     div(
       class = "lineup-header",
       div(
-        div(class = "lineup-eyebrow", "World Cup 2026 Challenge"),
+        div(class = "lineup-eyebrow", "Premier League 26/27"),
         h2("Leaderboard")
       )
     ),
@@ -296,16 +278,6 @@ leaderboard_server_logic <- function(input, output, session,
     entries <- entries |>
       arrange(desc(points), display_name, entry_name)
     entries$rank_label <- lb_rank_labels(entries$points)
-    entries$live       <- lb_entry_live(entries, all_picks,
-                                        get_players_all_local())
-    
-    # Live denominator: actual roster size per entry, counted from
-    # roster_picks (not assumed from config).
-    pick_counts <- all_picks |>
-      count(entry_id, name = "roster_n")
-    entries <- entries |>
-      left_join(pick_counts, by = "entry_id") |>
-      mutate(roster_n = coalesce(roster_n, 0L))
     
     message("    [leaderboard] ", nrow(entries), " entries loaded")
     entries
@@ -331,7 +303,7 @@ leaderboard_server_logic <- function(input, output, session,
     rows <- lb_data()
     if (is.null(rows)) return(NULL)
     if (nrow(rows) == 0 || all(is.na(rows$points))) {
-      span("Scoring goes live after Matchday 1 \u2014 points
+      span("Scoring goes live after Gameweek 1 \u2014 points
             will appear here as matches are scored.")
     } else {
       span("Scores may be provisional while match stats are collated.")
@@ -359,7 +331,6 @@ leaderboard_server_logic <- function(input, output, session,
       span(class = "lb-rank",    "#"),
       span(class = "lb-manager", "Manager"),
       span(class = "lb-entry",   "Entry"),
-      span(class = "lb-live",    "Live"),
       span(class = "lb-pts",     "Pts")
       # Winnings column removed for now — prize structure is
       # field-size dependent, confirmed post-lock. See note above
@@ -379,12 +350,7 @@ leaderboard_server_logic <- function(input, output, session,
         span(class = "lb-rank",    r$rank_label),
         span(class = "lb-manager", r$display_name),
         span(class = "lb-entry",   r$entry_name),
-        span(
-          class = "lb-live",
-          span(class = "lb-live-n", lb_fmt_int(r$live)),
-          span(class = "lb-live-d", paste0("/", r$roster_n))
-        ),
-        span(class = "lb-pts",   lb_fmt_pts(r$points))
+        span(class = "lb-pts",     lb_fmt_pts(r$points))
         # Winnings cell removed for now — see header comment above.
       )
     })
@@ -450,6 +416,19 @@ leaderboard_server_logic <- function(input, output, session,
       arrange(pos_ord, name)
     stats <- lb_player_stats(picks, lb_scored())
     
+    # Full club names for the stats list. picks$team carries the
+    # short_code; the teams tab is the source of truth for the display
+    # name. Unknown codes fall back to the code itself rather than NA.
+    team_names <- tryCatch({
+      tm <- get_teams_cached()
+      setNames(as.character(tm$name), as.character(tm$short_code))
+    }, error = function(e) character(0))
+    club_name <- function(code) {
+      code <- as.character(code)
+      nm   <- unname(team_names[code])
+      if (length(nm) == 0 || is.na(nm)) code else nm
+    }
+    
     stats_header <- div(
       class = "lb-roster-row lb-roster-row-header",
       span(class = "lb-roster-pos", ""),
@@ -465,19 +444,23 @@ leaderboard_server_logic <- function(input, output, session,
     row_uis <- lapply(seq_len(nrow(picks)), function(i) {
       p <- picks[i, ]
       s <- stats[i, ]
+      # First row of each positional group gets extra top spacing, so
+      # GK / DEF / MID / FWD read as blocks rather than one long list.
+      group_start <- i > 1 && !identical(p$position, picks$position[i - 1])
       div(
-        class = "lb-roster-row",
+        class = paste(c("lb-roster-row",
+                        if (group_start) "lb-roster-row--group-start"),
+                      collapse = " "),
         span(class = "lb-roster-pos", p$position),
         div(
           class = "lb-roster-player",
-          player_avatar(p$player_id, p$name),
+          club_crest(p$team),
           div(
             class = "lb-roster-id",
             span(class = "lb-roster-name", p$name),
             span(
               class = "lb-roster-sub",
-              badge_tag(p$team, size = "sm"),
-              span(class = "lb-roster-team", p$team)
+              span(class = "lb-roster-team", club_name(p$team))
             )
           )
         ),
@@ -490,7 +473,29 @@ leaderboard_server_logic <- function(input, output, session,
       )
     })
     
-    tagList(panel_header, div(class = "lb-roster-list", stats_header, row_uis))
+    # Gameweek strip + pitch above the per-player stats list.
+    # Only "Opening squad" is selectable today: gameweek views need
+    # bestball wired into lb_data() (R/bestball.R is implemented but
+    # not yet called), so the pills render disabled rather than
+    # pretending to work. available_gws stays empty until then.
+    cfg      <- tryCatch(get_config_cached(), error = function(e) NULL)
+    first_gw <- as.integer(cfg$gameweek_first %||% 1L)
+    last_gw  <- as.integer(cfg$gameweek_last  %||% 19L)
+    
+    selector <- pitch_gw_selector(
+      input_id      = "lb_gw_select",
+      active        = "squad",
+      first_gw      = first_gw,
+      last_gw       = last_gw,
+      available_gws = integer(0)
+    )
+    
+    tagList(
+      panel_header,
+      selector,
+      pitch_readonly(picks, "No picks found for this entry."),
+      div(class = "lb-roster-list", stats_header, row_uis)
+    )
   })
   
   # Ownership table (below the roster panel) --------------------------

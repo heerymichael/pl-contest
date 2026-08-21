@@ -2709,3 +2709,120 @@ h1, h2, h3, h4,
   color: var(--gaffer-muted, #8a8794);
   white-space: nowrap;
 }
+/* --- Leaderboard gameweek strip ------------------------------------
+   Sits between the squad panel header and the pitch. "Opening squad"
+   is the only live option until bestball scoring is wired; gameweek
+   pills render disabled (see pitch_gw_selector() in R/pitch.R).
+   ------------------------------------------------------------------ */
+
+.lb-gw-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--wc-panel-dark-divider);
+}
+
+.lb-gw-pill {
+  flex: none;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font: 400 13px var(--wc-font);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .lb-gw-pill:not(.lb-gw-pill--disabled):not(.lb-gw-pill--active):hover {
+    border-color: var(--wc-lime);
+    color: var(--wc-white);
+  }
+}
+
+.lb-gw-pill--active {
+  background: var(--wc-lime);
+  border-color: var(--wc-lime);
+  color: var(--wc-cobalt);
+  font-weight: 700;
+}
+
+.lb-gw-pill--disabled {
+  color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.12);
+  cursor: default;
+}
+
+.lb-gw-note {
+  margin: -8px 0 20px;
+  font: 400 13px var(--wc-font);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* Pitch inside the leaderboard squad panel: the panel already provides
+   its own padding, so drop the builder's top spacing and tighten the
+   band rhythm a touch to sit above the stats list. */
+.lb-roster-card .pitch {
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 480px) {
+  .lb-gw-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+  }
+  .lb-gw-strip::-webkit-scrollbar { display: none; }
+  .lb-gw-pill { padding: 4px 12px; font-size: 12px; }
+  .lb-gw-note { font-size: 12px; margin: -6px 0 16px; }
+  .lb-roster-card .pitch { gap: 16px; margin-bottom: 22px; }
+}
+
+/* --- Club crest in the leaderboard stats list ----------------------
+   Replaces the initials avatar. Same 48px footprint as .player-avatar
+   so the .lb-roster-row grid is untouched; the crest floats free with
+   a soft shadow rather than sitting in a ring (matches the pitch
+   chips' naked-crest treatment). See club_crest() in R/pitch.R.
+   ------------------------------------------------------------------ */
+
+.club-crest {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.club-crest img {
+  width: 44px;
+  height: 44px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+.club-crest--empty {
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.22);
+}
+
+/* Breathing room between positional groups in the stats list. Applied
+   to the first row of each new position (see group_start in
+   R/leaderboard.R) so GK / DEF / MID / FWD read as blocks. */
+.lb-roster-row--group-start {
+  margin-top: 18px;
+}
+
+@media (max-width: 480px) {
+  .club-crest { width: 40px; height: 40px; }
+  .club-crest img { width: 36px; height: 36px; }
+  .lb-roster-row--group-start { margin-top: 14px; }
+}
