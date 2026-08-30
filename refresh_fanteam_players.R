@@ -39,7 +39,7 @@
 #   4. Edit DRY_RUN below to FALSE and re-run to commit.
 # ---------------------------------------------------------------------------
 
-DRY_RUN <- FALSE
+DRY_RUN <- TRUE
 
 CSV_PATH <- "data/fanteam_salaries.csv"   # overwritten with each day's export
 
