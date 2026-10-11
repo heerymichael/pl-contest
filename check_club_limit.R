@@ -11,6 +11,13 @@
 #
 # Run after:  source("R/sheets.R")   (auth + sheet_id())
 #
+# PERIOD-AWARE. roster_picks holds one full roster per period (period 1 =
+# GW1-2, period 2 = GW3-19). Clashes are measured on the roster that scores
+# CHECK_PERIOD, selected exactly as R/bestball.R's .bb_entry_roster() does:
+# rows tagged CHECK_PERIOD if the entry has any, otherwise all its rows.
+# Counting across periods would report every transfer as a clash between
+# the outgoing and incoming player's clubs.
+#
 # Notes:
 #   * FanTeam has renamed Coventry's code COV -> CVC in the new export.
 #     This script normalises CVC back to COV before comparing, so a pure
@@ -29,6 +36,10 @@ suppressPackageStartupMessages({
 message(">>> SOURCED check_club_limit.R at ", format(Sys.time()))
 
 SALARIES_CSV <- "data/fanteam_salaries.csv"
+
+# The period whose roster is validated. 2L from GW3 onward.
+CHECK_PERIOD <- 2L
+ROSTER_SIZE  <- 15L
 
 # FanTeam code renames that are NOT real transfers.
 CODE_RENAMES <- c(CVC = "COV")
@@ -57,8 +68,39 @@ players <- players |>
 picks <- picks |>
   mutate(
     entry_id  = as.character(entry_id),
-    player_id = as.character(player_id)
+    player_id = as.character(player_id),
+    period    = if ("period" %in% names(picks))
+      suppressWarnings(as.integer(period)) else NA_integer_
   )
+
+# --- Period structure ------------------------------------------------------
+
+period_sizes <- picks |>
+  filter(!is.na(period)) |>
+  count(entry_id, period, name = "n")
+bad_period_sizes <- period_sizes |> filter(n != ROSTER_SIZE)
+
+has_period <- picks |>
+  filter(period == CHECK_PERIOD) |>
+  distinct(entry_id) |>
+  pull(entry_id)
+
+# The roster that scores CHECK_PERIOD, mirroring .bb_entry_roster().
+picks_all <- picks
+picks <- bind_rows(
+  picks_all |> filter(entry_id %in% has_period, period == CHECK_PERIOD),
+  picks_all |> filter(!entry_id %in% has_period)
+)
+
+message("    [club] period ", CHECK_PERIOD, " rosters: ", length(has_period),
+        " entries | fallback (all rows): ",
+        length(unique(picks_all$entry_id)) - length(has_period),
+        " entries | blank period cells: ", sum(is.na(picks_all$period)))
+
+if (nrow(bad_period_sizes) > 0) {
+  message("\n!!! (entry, period) groups not holding ", ROSTER_SIZE, " rows:")
+  print(bad_period_sizes, n = Inf)
+}
 
 entry_names <- entries |>
   transmute(
@@ -100,7 +142,9 @@ moved_owned <- players_new |>
   filter(club_changed, player_id %in% owned_ids) |>
   select(player_id, name, old_club = team, new_club)
 
-message("\n=== OWNED players whose club has changed (", nrow(moved_owned), ") ===")
+message("\n=== OWNED (period ", CHECK_PERIOD,
+        " rosters) players whose club has changed (", nrow(moved_owned),
+        ") ===")
 if (nrow(moved_owned) == 0) {
   message("    none")
 } else {
@@ -131,8 +175,8 @@ clashes <- roster |>
   count(entry_id, entry_name, club_effective, name = "n") |>
   filter(n > 1)
 
-message("\n=== PROSPECTIVE club-limit breaches under new assignments (",
-        nrow(clashes), ") ===")
+message("\n=== PROSPECTIVE club-limit breaches under new assignments, period ",
+        CHECK_PERIOD, " rosters (", nrow(clashes), ") ===")
 
 if (nrow(clashes) == 0) {
   message("    none - every roster still satisfies one player per club")
@@ -156,7 +200,10 @@ if (nrow(clashes) == 0) {
 stopifnot(
   nrow(picks) > 0,
   nrow(players_new) == nrow(players),
-  !any(duplicated(salaries$fanteam_id))
+  !any(duplicated(salaries$fanteam_id)),
+  length(unique(picks$entry_id)) == length(unique(picks_all$entry_id)),
+  all(picks$period[picks$entry_id %in% has_period] == CHECK_PERIOD,
+      na.rm = TRUE)
 )
 
 message("\n>>> check_club_limit.R complete. Nothing was written.")

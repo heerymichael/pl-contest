@@ -6,6 +6,15 @@
 # that a refresh which deactivated, reclassified or moved a player shows up
 # as the entry-level damage it actually causes.
 #
+# PERIOD-AWARE. roster_picks carries one full 15-player roster per period
+# (period 1 = GW1-2, period 2 = GW3-19 after the transfer window). Each
+# entry is judged on the roster that scores the CURRENT period, selected
+# exactly as R/bestball.R's .bb_entry_roster() does for CHECK_PERIOD: the
+# entry's rows tagged that period if any exist, otherwise ALL its rows
+# (the tolerant fallback for entries that made no transfers). On top of
+# that, every (entry, period) group must hold exactly 15 rows - a
+# malformed historical period would misscore GW1-2 just as surely.
+#
 # Run after:  source("R/sheets.R")   (auth + SHEET_ID)
 #             source("R/utils.R")    (%||%)
 #
@@ -28,6 +37,10 @@ message(">>> SOURCED check_roster_health.R at ", format(Sys.time()))
 POS_TARGET <- c(GK = 2L, DEF = 5L, MID = 5L, FWD = 3L)
 
 ROSTER_SIZE <- sum(POS_TARGET)
+
+# The period whose roster is being validated. 2L from GW3 onward. Set to 1L
+# to re-audit the locked GW1-2 rosters.
+CHECK_PERIOD <- 2L
 
 # Use the ID from R/sheets.R if it is loaded; fall back to the literal.
 SHEET <- if (exists("SHEET_ID")) get("SHEET_ID") else
@@ -58,8 +71,42 @@ players <- players |>
 picks <- picks |>
   mutate(
     entry_id  = as.character(entry_id),
-    player_id = as.character(player_id)
+    player_id = as.character(player_id),
+    period    = if ("period" %in% names(picks))
+      suppressWarnings(as.integer(period)) else NA_integer_
   )
+
+# --- Period structure ------------------------------------------------------
+
+n_blank_period <- sum(is.na(picks$period))
+period_sizes <- picks |>
+  filter(!is.na(period)) |>
+  count(entry_id, period, name = "n")
+bad_period_sizes <- period_sizes |> filter(n != ROSTER_SIZE)
+
+message("    [health] period rows: ",
+        paste(sprintf("p%s=%d", names(table(picks$period)),
+                      as.integer(table(picks$period))), collapse = ", "),
+        " | blank period: ", n_blank_period,
+        " | entries with period ", CHECK_PERIOD, ": ",
+        length(unique(period_sizes$entry_id[period_sizes$period ==
+                                              CHECK_PERIOD])))
+
+# The roster that scores CHECK_PERIOD, per entry, mirroring
+# .bb_entry_roster(): rows tagged CHECK_PERIOD if the entry has any,
+# otherwise every row the entry holds.
+has_period <- picks |>
+  filter(period == CHECK_PERIOD) |>
+  distinct(entry_id) |>
+  pull(entry_id)
+
+current <- bind_rows(
+  picks |> filter(entry_id %in% has_period, period == CHECK_PERIOD),
+  picks |> filter(!entry_id %in% has_period)
+) |>
+  mutate(roster_source = if_else(entry_id %in% has_period,
+                                 paste0("period ", CHECK_PERIOD),
+                                 "fallback (all rows)"))
 
 entries <- entries |>
   mutate(entry_id = as.character(entry_id))
@@ -81,7 +128,7 @@ entries_lookup <- tibble(
 
 # --- Join ------------------------------------------------------------------
 
-joined <- picks |>
+joined <- current |>
   left_join(
     players |> select(player_id, name, team, position, is_active),
     by = "player_id"
@@ -100,11 +147,27 @@ for (eid in unique(joined$entry_id)) {
   
   problems <- character(0)
   
-  # Roster size. Guards against duplicate pick rows as well as short rosters.
+  # Scoring-roster size. Guards against duplicate pick rows as well as
+  # short rosters. For a fallback entry this is all its rows, so a stray
+  # extra row shows up here too.
   if (nrow(rows) != ROSTER_SIZE) {
     problems <- c(problems,
-                  paste0("ROSTER SIZE: ", nrow(rows), " pick rows, expected ",
-                         ROSTER_SIZE))
+                  paste0("ROSTER SIZE (", rows$roster_source[1], "): ",
+                         nrow(rows), " pick rows, expected ", ROSTER_SIZE))
+  }
+  
+  # Every period the entry holds must be a complete roster.
+  bad_p <- bad_period_sizes |> filter(entry_id == eid)
+  for (i in seq_len(nrow(bad_p))) {
+    problems <- c(problems,
+                  paste0("PERIOD ", bad_p$period[i], " SIZE: ", bad_p$n[i],
+                         " rows, expected ", ROSTER_SIZE))
+  }
+  
+  # A blank period cell falls outside every period filter - flag it.
+  n_na <- sum(is.na(picks$period[picks$entry_id == eid]))
+  if (n_na > 0) {
+    problems <- c(problems, paste0("BLANK PERIOD: ", n_na, " row(s)"))
   }
   
   # Picks that no longer resolve to any row on the players tab at all.
@@ -164,12 +227,17 @@ for (eid in unique(joined$entry_id)) {
 
 message("")
 message("=====================================================")
-message(" ROSTER HEALTH — ", length(unique(joined$entry_id)),
-        " entries checked, ", length(report), " with problems")
+message(" ROSTER HEALTH — period ", CHECK_PERIOD, " — ",
+        length(unique(joined$entry_id)),
+        " entries checked (", length(has_period), " on period ",
+        CHECK_PERIOD, ", ", length(unique(joined$entry_id)) -
+          length(has_period), " on fallback), ",
+        length(report), " with problems")
 message("=====================================================")
 
 if (length(report) == 0) {
-  message(" All entries valid against the current players tab.")
+  message(" All scoring rosters valid against the current players tab; ",
+          "every period group holds ", ROSTER_SIZE, " rows.")
 } else {
   for (r in report) {
     message("")
@@ -185,7 +253,7 @@ if (length(report) == 0) {
 
 message("")
 message("-----------------------------------------------------")
-message(" INACTIVE PLAYERS BY OWNERSHIP")
+message(" INACTIVE PLAYERS BY OWNERSHIP (period ", CHECK_PERIOD, " rosters)")
 message("-----------------------------------------------------")
 
 owned_inactive <- joined |>
@@ -207,6 +275,15 @@ if (nrow(owned_inactive) == 0) {
                                           !joined$is_active])),
           " entries")
 }
+
+# --- Self-verification -----------------------------------------------------
+
+stopifnot(
+  nrow(current) > 0,
+  length(unique(current$entry_id)) == length(unique(picks$entry_id)),
+  all(current$period[current$entry_id %in% has_period] == CHECK_PERIOD,
+      na.rm = TRUE)
+)
 
 message("")
 message(">>> check_roster_health complete — nothing written.")
