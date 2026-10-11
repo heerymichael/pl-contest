@@ -201,7 +201,13 @@ message("    [ingest] ", STATS_TAB, ": ",
 
 message(">>> [ingest] fetching season fixtures")
 
+# The API only exposes fixtures loaded so far (MD1-10 as of 11 Oct 2026, a
+# rolling horizon), and meta$total_pages is authoritative. Stop on it rather
+# than on "page shorter than 100": a page that is both full AND last (total
+# exactly 100) otherwise triggers a request for page 2, which the API
+# rejects with HTTP 400 PAGE_OUT_OF_RANGE and used to abort the ingest.
 fixtures <- list()
+total_pages <- NA_integer_
 for (pg in 1:5) {
   r <- api_get("football/matches",
                params = list(competition_id = PL_COMPETITION_ID,
@@ -211,10 +217,15 @@ for (pg in 1:5) {
   if (!isTRUE(r$ok)) stop("Fixture fetch failed on page ", pg, call. = FALSE)
   page <- r$data$data %||% list()
   fixtures <- c(fixtures, page)
-  if (length(page) < 100) break
+  total_pages <- suppressWarnings(as.integer(r$data$meta$total_pages %||% NA))
+  if (!is.na(total_pages) && pg >= total_pages) break
+  if (is.na(total_pages) && length(page) < 100) break
 }
 message("    [ingest] ", length(fixtures), " fixtures in season ",
-        PL_SEASON_ID)
+        PL_SEASON_ID, " (", if (is.na(total_pages)) "?" else total_pages,
+        " page(s); API horizon up to matchday ",
+        suppressWarnings(max(vapply(fixtures, function(f) n0(f$matchday), numeric(1)),
+                             na.rm = TRUE)), ")")
 
 fx <- do.call(rbind, lapply(fixtures, function(f) data.frame(
   match_id  = chr1(f$id),

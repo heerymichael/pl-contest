@@ -202,7 +202,12 @@ probe_main <- function() {
   
   # 2. Fixture pages -----------------------------------------------------
   
+  # Stop on meta$total_pages, not on a short page. The API loads fixtures in
+  # tranches (MD1-10 = exactly 100 as of 11 Oct 2026), so a page can be both
+  # full and last; asking for the next one returns HTTP 400 PAGE_OUT_OF_RANGE.
   fixtures <- list()
+  total_pages <- NA_integer_
+  api_total   <- NA_integer_
   for (pg in 1:5) {
     Sys.sleep(0.6)
     resp <- api_get("football/matches",
@@ -220,11 +225,17 @@ probe_main <- function() {
     }
     page_fixtures <- resp$data$data %||% list()
     fixtures <- c(fixtures, page_fixtures)
-    if (length(page_fixtures) < 100) break
+    total_pages <- suppressWarnings(as.integer(resp$data$meta$total_pages %||% NA))
+    api_total   <- suppressWarnings(as.integer(resp$data$meta$total %||% NA))
+    if (!is.na(total_pages) && pg >= total_pages) break
+    if (is.na(total_pages) && length(page_fixtures) < 100) break
   }
   
   message(">>> [probe] fixtures loaded: ", length(fixtures),
-          " (expect 380 for a full season)")
+          " of API total ", api_total %||% "?",
+          " (380 for a full season; fewer means the API is only exposing a ",
+          "rolling horizon of rounds, and check_gameweeks.R can only validate ",
+          "windows inside it)")
   
   if (length(fixtures) == 0) {
     return(verdict("SEASON_EMPTY",

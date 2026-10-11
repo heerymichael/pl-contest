@@ -17,13 +17,25 @@
 # gaps, even where no fixture can fall in the tail of a window. A gap would
 # mean a rearranged match belonging to no gameweek and scoring for nobody,
 # silently.
+#
+# v2 (11 Oct 2026): DATES UNCHANGED. Status and notes refreshed against the
+# Premier League's published TV selections (MW6-12, 2 Dec midweek) and the
+# festive fixture release (26 Dec - 7 Jan). Every confirmed kickoff falls
+# inside the window it was designed for, and MW20 (Tue 5 Jan 19:30) falls
+# after the GW19 hard stop, so nothing from round 20 leaks into GW19.
+# GW14-16 (Sat 5/12/19 Dec) stay provisional until their TV picks land
+# (due w/c 19 Oct); any Fri/Sat/Sun/Mon slot already sits inside the window.
+#
+# The FIRST SENTENCE of each note is what gameweek_window_text() shows in
+# the app (tooltips/headers), so keep it a short date range (<= 40 chars)
+# describing the FIXTURES, not the window. Validation below enforces this.
 
-DRY_RUN         <- FALSE
-ALLOW_OVERWRITE <- FALSE   # set TRUE only to deliberately replace an existing tab
+DRY_RUN <- TRUE
+ALLOW_OVERWRITE <- FALSE
 
 library(googlesheets4)
 
-message(">>> SOURCED seed_gameweeks.R at ", format(Sys.time()))
+message(">>> SOURCED seed_gameweeks.R (v2) at ", format(Sys.time()))
 
 SHEET_ID <- "1oFdL_U-U4G-3YGXd13Pcb6s4-U01reZwEeVQ-ceUdI8"
 TAB_NAME <- "gameweeks"
@@ -53,27 +65,29 @@ gw <- data.frame(
     "2027-01-05 04:00"
   ),
   period      = c(1L, 1L, rep(2L, 17)),
-  status      = c(rep("confirmed", 9), rep("provisional", 10)),
+  status      = c(rep("confirmed", 13),          # GW1-13
+                  rep("provisional", 3),         # GW14-16: TV picks due w/c 19 Oct
+                  rep("confirmed", 3)),          # GW17-19: festive release
   notes       = c(
     "Fri 21 - Mon 24 Aug",
     "Fri 28 - Mon 31 Aug. ENDS EARLY (Thu 3 Sep, not Fri 4): transfer window opens 3 Sep 09:00 and auto-subs run Wed 2 Sep, so GW2 must be closed first. Deliberate override of the boundary rule - do not 'correct'.",
     "Fri 4 - Sun 6 Sep. First match 4 Sep 20:00; transfer window closes 19:00, i.e. 1h before kickoff.",
     "Sat 12 - Mon 14 Sep",
     "Fri 18 - Sun 20 Sep. Widest window in the contest (22 days) - international break follows.",
-    "Sat 10 - Mon 12 Oct",
-    "Sat 17 - Mon 19 Oct",
-    "Fri 23 - Sun 25 Oct. Window spans the DST change (clocks back Sun 25 Oct).",
-    "Sat 31 Oct - Mon 2 Nov",
-    "Sat 7 Nov listed. Provisional: TV selections for rounds 10-12 due w/c 21 Sep 2026.",
-    "Sat 21 Nov listed. Provisional.",
-    "Sat 28 Nov listed. Provisional. Tightest boundary in the set: Mon night finish, Tue 04:00 close.",
-    "Wed 2 Dec midweek round. Provisional: rounds 13-20 TV selections due w/c 19 Oct 2026.",
-    "Sat 5 Dec listed. Provisional.",
+    "Sat 10 - Mon 12 Oct. Coventry v Newcastle moved to Mon 12 Oct 20:00.",
+    "Sat 17 - Mon 19 Oct. Spurs v Coventry moved to Mon 19 Oct 20:00.",
+    "Fri 23 - Sun 25 Oct. Ipswich v Forest Fri 23 Oct 20:00. Window spans the DST change (clocks back Sun 25 Oct).",
+    "Sat 31 Oct - Mon 2 Nov. Newcastle v Everton moved to Mon 2 Nov 20:00.",
+    "Fri 6 - Sun 8 Nov. Everton v Coventry Fri 6 Nov 20:00. International break follows - window runs to Fri 20 Nov.",
+    "Sat 21 - Mon 23 Nov. Brentford v Everton moved to Mon 23 Nov 20:00.",
+    "Fri 27 - Sun 29 Nov. Forest v Chelsea Fri 27 Nov 20:00. Tue 04:00 close ahead of the midweek round.",
+    "Wed 2 Dec midweek round. All ten fixtures 20:00.",
+    "Sat 5 Dec listed. Provisional: TV selections for rounds 14-16 due w/c 19 Oct 2026. Any Fri-Mon slot sits inside this window.",
     "Sat 12 Dec listed. Provisional.",
     "Sat 19 Dec listed. Provisional.",
-    "Sat 26 Dec listed. Provisional.",
-    "Wed 30 Dec midweek round. Provisional.",
-    "Sat 2 Jan 2027 listed. Provisional. HARD STOP at Tue 5 Jan 04:00 to enable prompt payout: a GW19 fixture rearranged beyond this window does not score."
+    "Sat 26 - Sun 27 Dec. Last match Palace v Arsenal Sun 27 Dec 19:00; closes Tue 29 Dec 04:00.",
+    "Tue 29 - Wed 30 Dec. Midweek round, first kickoffs Tue 29 Dec 19:30.",
+    "Fri 1 - Sun 3 Jan 2027. Leeds v Everton Fri 1 Jan 20:00. HARD STOP at Tue 5 Jan 04:00 to enable prompt payout: MW20 begins Tue 5 Jan 19:30 and does not score, nor does any GW19 fixture rearranged beyond this window."
   ),
   stringsAsFactors = FALSE
 )
@@ -103,6 +117,17 @@ validate_gw <- function(d) {
     errs <- c(errs, "period must be non-decreasing")
   if (!all(d$period == as.integer(d$period)))
     errs <- c(errs, "period must be integer")
+  if (!all(d$status %in% c("confirmed", "provisional")))
+    errs <- c(errs, "status must be 'confirmed' or 'provisional'")
+  
+  # First sentence of each note is the app's display label; keep it short.
+  frag <- vapply(strsplit(d$notes, ".", fixed = TRUE),
+                 function(x) trimws(x[1]), character(1))
+  long <- which(!nzchar(frag) | nchar(frag) > 40)
+  if (length(long))
+    errs <- c(errs, paste0("notes first sentence missing or > 40 chars at gw ",
+                           paste(d$gw[long], collapse = ", "),
+                           " (gameweek_window_text would fall back to the raw window)"))
   
   errs
 }
@@ -124,7 +149,7 @@ if (length(errs)) {
   for (x in errs) message(">>> [seed] VALIDATION FAILURE: ", x)
   stop("Validation failed - nothing written.", call. = FALSE)
 }
-message(">>> [seed] validation PASSED (contiguous, ordered, periods sane)")
+message(">>> [seed] validation PASSED (contiguous, ordered, periods sane, labels short)")
 
 # --- Write --------------------------------------------------------------
 
@@ -141,6 +166,24 @@ if (tab_exists && !isTRUE(ALLOW_OVERWRITE)) {
   message("")
   message(">>> [seed] DRY RUN - no write performed. Tab '", TAB_NAME, "' ",
           if (tab_exists) "exists and WOULD BE REPLACED." else "would be created.")
+  if (tab_exists) {
+    # Show exactly what would change so a refresh never silently moves a date.
+    cur <- read_sheet(SHEET_ID, sheet = TAB_NAME, col_types = "c")
+    cur <- cur[order(suppressWarnings(as.integer(cur$gw))), , drop = FALSE]
+    if (nrow(cur) == nrow(gw)) {
+      for (col in c("starts_at", "ends_at", "period", "status", "notes")) {
+        diff_rows <- which(as.character(cur[[col]]) != as.character(gw[[col]]))
+        if (length(diff_rows))
+          message(">>> [seed] would change '", col, "' at gw ",
+                  paste(gw$gw[diff_rows], collapse = ", "))
+        else
+          message(">>> [seed] '", col, "' unchanged")
+      }
+    } else {
+      message(">>> [seed] current tab has ", nrow(cur), " rows vs ", nrow(gw),
+              " in this file - full replacement")
+    }
+  }
   message(">>> [seed] Set DRY_RUN <- FALSE in the file to apply.")
 } else {
   write_sheet(gw, ss = SHEET_ID, sheet = TAB_NAME)
