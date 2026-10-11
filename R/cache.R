@@ -141,3 +141,23 @@ get_match_stats_cached <- local({
     underlying()
   }
 })
+
+# --- Transfers log (5-min TTL memoised) ---------------------------------
+# The `transfers` tab changes rarely (commissioner corrections now; window
+# rows in September), so the squad panel's Transfers view reads it through
+# the same 5-minute store as contest config and match stats: a new row
+# reaches the public board within five minutes with no redeploy, and the
+# tab is deliberately NOT part of any snapshot — no snapshot-trap exposure.
+
+get_transfers_cached <- local({
+  underlying <- memoise(
+    function() {
+      message("    [cache] MISS transfers — fetching from Sheets")
+      get_all_transfers()
+    },
+    cache = .cache_store
+  )
+  function() {
+    underlying()
+  }
+})

@@ -29,7 +29,7 @@
 #   R/leaderboard.R line ~249     (user-visible "World Cup 2026 Challenge"
 #                                  eyebrow — code edit, not a deletion)
 
-DRY_RUN <- FALSE
+DRY_RUN <- TRUE
 
 # ---- guard: confirm we're in the right project ------------------------
 

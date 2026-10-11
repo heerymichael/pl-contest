@@ -1,6 +1,12 @@
 # My Lineups: list of the user's existing lineups (oldest first), with
 # an embedded editor that appears below when a lineup is clicked.
 # Editor uses the shared lineup_picker in mode = "edit".
+#
+# Transfer window: post-lock the editor stays read-only EXCEPT while the
+# Gameweek 3 window is open, when it becomes the transfer editor. That is
+# driven by can_edit_reactive (from app.R: !locked || window open) and the
+# window-open baseline roster (transfer_baseline() in R/sheets.R), both
+# passed into the picker.
 
 message(">>> SOURCED R/my_lineups.R at ", format(Sys.time()))
 
@@ -35,9 +41,15 @@ my_lineups_view <- function() {
 
 my_lineups_server_logic <- function(input, output, session,
                                     current_user, view_state,
-                                    is_locked_reactive) {
+                                    is_locked_reactive,
+                                    can_edit_reactive = NULL,
+                                    window_state_reactive = reactive("none")) {
   
   message(">>> ENTER my_lineups_server_logic")
+  
+  if (is.null(can_edit_reactive)) {
+    can_edit_reactive <- reactive(!isTRUE(is_locked_reactive()))
+  }
   
   selected_lineup_id <- reactiveVal(NULL)
   editor_dirty       <- reactiveVal(FALSE)
@@ -65,6 +77,28 @@ my_lineups_server_logic <- function(input, output, session,
     if (is.null(eid)) return(integer(0))
     picks <- get_picks_for_entry(eid)
     as.integer(picks$player_id)
+  })
+  
+  # The roster the entry held when the window opened — period 1 plus any
+  # club-clash auto-subs — so the picker's transfer counter is cumulative
+  # across saves. Only computed while the window is open (two extra live
+  # reads); NULL otherwise, and the picker falls back to the loaded roster.
+  # Re-evaluated on every lineup open, not cached: an entrant who saves
+  # and reopens must see the same baseline, and it never changes within
+  # the window.
+  transfer_baseline_ids <- reactive({
+    eid <- selected_lineup_id()
+    if (is.null(eid)) return(NULL)
+    if (!isTRUE(is_locked_reactive()) ||
+        !identical(window_state_reactive(), "open")) return(NULL)
+    message(">>> [my_lineups] computing transfer baseline for ", eid)
+    cfg   <- get_config_cached()
+    picks <- read_sheet(sheet_id(), sheet = "roster_picks", col_types = "c")
+    trs   <- get_all_transfers()
+    base  <- transfer_baseline(eid, picks, trs,
+                               as.integer(cfg$transfer_effective_gw %||% 3L))
+    message("    baseline: ", length(base), " players")
+    as.integer(base)
   })
   
   # List UI ---------------------------------------------------------
@@ -113,13 +147,22 @@ my_lineups_server_logic <- function(input, output, session,
   output$my_lineups_editor <- renderUI({
     eid <- selected_lineup_id()
     if (is.null(eid)) return(NULL)
-    locked <- is_locked_reactive()
+    locked   <- isTRUE(is_locked_reactive())
+    can_edit <- isTRUE(can_edit_reactive())
     
-    tagList(
-      if (locked) div(class = "locked-notice",
-                      "This lineup is locked — you can view but not edit."),
-      lineup_editor_ui()
-    )
+    notice <- if (locked && can_edit) {
+      cfg <- get_config_cached()
+      div(class = "locked-notice locked-notice--window",
+          sprintf(paste("Transfer window open \u2014 you can change up to %d",
+                        "players. Changes apply from Gameweek %d."),
+                  as.integer(cfg$transfers_max %||% 2L),
+                  as.integer(cfg$transfer_effective_gw %||% 3L)))
+    } else if (locked) {
+      div(class = "locked-notice",
+          "This lineup is locked \u2014 you can view but not edit.")
+    } else NULL
+    
+    tagList(notice, lineup_editor_ui())
   })
   
   lineup_picker_server_logic(
@@ -130,6 +173,8 @@ my_lineups_server_logic <- function(input, output, session,
     initial_picks      = current_lineup_picks,
     editing_entry_id   = selected_lineup_id,
     is_locked_reactive = is_locked_reactive,
+    can_edit_reactive  = can_edit_reactive,
+    transfer_baseline_ids = transfer_baseline_ids,
     on_dirty_change    = function(is_dirty) { editor_dirty(is_dirty) },
     on_save_success    = function() {
       message(">>> [my_lineups] save success — closing editor")

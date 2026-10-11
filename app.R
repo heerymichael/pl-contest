@@ -1,11 +1,13 @@
-# World Cup 2026 Challenge — main app
+# GAFFER · Fantasy XV — Premier League 26/27 contest — main app
 library(shiny)
 library(dplyr)
 
 
 source("R/sheets.R")
 source("R/cache.R")
+source("R/gameweeks.R")
 source("R/lock.R")
+source("R/transfers.R")
 source("R/users.R")
 source("R/badges.R")
 source("R/pitch.R")
@@ -57,9 +59,13 @@ client_js <- HTML("
   });
 
   // --- Countdown ----------------------------------------------------
+  // The banner element carries its own target as data-until (ISO UTC)
+  // and, optionally, a fixed band class as data-band. Reading them off
+  // the element every tick means a re-rendered banner with a new target
+  // (lock -> window open -> window close) just works. Zero fires
+  // wc_countdown_fired once per target; R bumps lock_tick and re-renders.
   (function() {
-    var lockAtMs = null;
-    var fired = false;
+    var firedFor = null;
 
     function pad(n) { return n.toString().padStart(2, '0'); }
 
@@ -81,36 +87,34 @@ client_js <- HTML("
     }
 
     function tick() {
-      if (lockAtMs === null) return;
       var banner  = document.getElementById('countdown-banner');
       var timer   = document.getElementById('countdown-banner-timer');
-      var message = banner ? banner.querySelector('.countdown-banner-message') : null;
       if (!banner || !timer) return;
+      var until = banner.getAttribute('data-until');
+      if (!until) return;
+      var untilMs = new Date(until).getTime();
+      var message = banner.querySelector('.countdown-banner-message');
+      var fixed   = banner.getAttribute('data-band');
 
-      var secs = Math.floor((lockAtMs - Date.now()) / 1000);
-      banner.className = 'countdown-banner ' + bandClass(secs);
+      var secs = Math.floor((untilMs - Date.now()) / 1000);
+      banner.className = 'countdown-banner ' + (fixed || bandClass(secs));
 
       if (secs <= 0) {
-        if (message) message.textContent = 'Contest is locked';
+        var zero = banner.getAttribute('data-zero');
+        if (message && zero) message.textContent = zero;
         timer.textContent = '';
         timer.style.display = 'none';
-        if (!fired) {
-          fired = true;
-          console.log('[wc] countdown reached zero — firing wc_lock_fired');
-          Shiny.setInputValue('wc_lock_fired', Math.random(), {priority: 'event'});
+        if (firedFor !== until) {
+          firedFor = until;
+          console.log('[wc] countdown reached zero for', until, '- firing wc_countdown_fired');
+          Shiny.setInputValue('wc_countdown_fired', until, {priority: 'event'});
         }
         return;
       }
 
+      timer.style.display = '';
       timer.textContent = fmtSecs(secs);
     }
-
-    Shiny.addCustomMessageHandler('wc_set_lock_at', function(data) {
-      console.log('[wc] received lock_at:', data.iso);
-      lockAtMs = new Date(data.iso).getTime();
-      fired = false;
-      tick();
-    });
 
     setInterval(tick, 1000);
   })();
@@ -156,7 +160,8 @@ ui <- fluidPage(
 # countdown fires flips straight to it, and the nav highlights the
 # Leaderboard link correctly. locked_view() in R/lock.R is no longer
 # reachable from here; left in place deliberately.
-app_shell_ui <- function(current_username, current_view, locked) {
+app_shell_ui <- function(current_username, current_view, locked,
+                         window_state = "none") {
   if (locked && current_view == "lineup") current_view <- "leaderboard"
   
   view <- switch(current_view,
@@ -169,7 +174,7 @@ app_shell_ui <- function(current_username, current_view, locked) {
   )
   
   tagList(
-    countdown_banner_ui(locked),
+    countdown_banner_ui(locked, window_state),
     nav_header(current_username, current_view, locked),
     view
   )
@@ -197,31 +202,39 @@ server <- function(input, output, session) {
     is_locked_cached()
   })
   
+  # Transfer-window state and the "may this entry be edited" answer.
+  # Both hang off lock_tick so the banner reaching zero (lock, window
+  # open, window close) re-evaluates them in the same flush.
+  window_state_reactive <- reactive({
+    lock_tick()
+    transfer_window_state_cached()
+  })
+  
+  can_edit_reactive <- reactive({
+    !is_locked_reactive() || identical(window_state_reactive(), "open")
+  })
+  
   output$page <- renderUI({
     user <- current_user()
     username <- if (!is.null(user)) user$display_name else NULL
     locked <- is_locked_reactive()
-    app_shell_ui(username, view_state(), locked)
+    app_shell_ui(username, view_state(), locked, window_state_reactive())
   })
   
-  observeEvent(input$wc_lock_fired, {
-    message(">>> OBSERVE wc_lock_fired — bumping lock_tick")
+  # The banner's countdown hit zero — lock, window open, or window
+  # close. One bump re-renders everything that depends on time.
+  observeEvent(input$wc_countdown_fired, {
+    message(">>> OBSERVE wc_countdown_fired (", input$wc_countdown_fired,
+            ") — bumping lock_tick")
     lock_tick(isolate(lock_tick()) + 1L)
-    # Anyone sitting on the lineup view when the countdown hits zero
-    # flips to the leaderboard — keeps the server-side view state in
-    # step with app_shell_ui()'s post-lock normalisation.
-    if (isolate(view_state()) == "lineup") {
-      message(">>> wc_lock_fired — flipping view_state to leaderboard")
+    # Anyone sitting on the lineup view when the contest locks flips to
+    # the leaderboard — keeps the server-side view state in step with
+    # app_shell_ui()'s post-lock normalisation.
+    if (isolate(view_state()) == "lineup" && is_locked_cached()) {
+      message(">>> wc_countdown_fired — flipping view_state to leaderboard")
       view_state("leaderboard")
     }
   })
-  
-  session$onFlushed(function() {
-    cfg <- get_config_cached()
-    iso <- format(cfg$lock_at, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-    message(">>> sending lock_at to client: ", iso)
-    session$sendCustomMessage("wc_set_lock_at", list(iso = iso))
-  }, once = TRUE)
   
   observeEvent(input$logout, {
     message(">>> OBSERVE logout")
@@ -242,7 +255,9 @@ server <- function(input, output, session) {
   lineup_creator_server_logic(input, output, session, current_user,
                               view_state, is_locked_reactive)
   my_lineups_server_logic(input, output, session, current_user,
-                          view_state, is_locked_reactive)
+                          view_state, is_locked_reactive,
+                          can_edit_reactive     = can_edit_reactive,
+                          window_state_reactive = window_state_reactive)
   leaderboard_server_logic(input, output, session, current_user,
                            view_state, is_locked_reactive)
   scores_2526_server_logic(input, output, session)

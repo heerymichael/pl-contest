@@ -213,6 +213,23 @@ h1, h2, h3, h4, h5, h6 {
   color: rgba(55, 0, 60, 0.70);
 }
 
+/* Transfer-window band: pinned via data-band on the banner element, so
+   the countdown JS keeps it rather than cycling neutral/warn/urgent.
+   Magenta on white text; the timer chip inverts so it stays legible. */
+.banner-window {
+  background: var(--wc-coral);
+  color: var(--wc-white);
+}
+
+.banner-window .countdown-banner-timer {
+  background: var(--wc-white);
+  color: var(--wc-coral);
+}
+
+.banner-window .countdown-banner-secondary {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* --- Navigation header (sits below the banner) -------------------------- */
 
 .nav-bar {
@@ -958,6 +975,12 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--wc-radius-md);
   margin-bottom: 15px;
   font-weight: 500;
+}
+
+/* Same notice while the transfer window is open — magenta so it reads
+   as "you can act" rather than "you are locked out". */
+.locked-notice--window {
+  background: var(--wc-coral);
 }
 
 /* --- Club badge icons ---------------------------------------------- */
@@ -2825,4 +2848,445 @@ h1, h2, h3, h4,
   .club-crest { width: 40px; height: 40px; }
   .club-crest img { width: 36px; height: 36px; }
   .lb-roster-row--group-start { margin-top: 14px; }
+}
+/* --- Scored squad view (leaderboard gameweek pitch) -------------------
+   Extends the banded pitch with per-player scores and a BENCH band.
+   The XI is drawn in the position bands, so the bands read as the
+   formation actually fielded; everyone else drops to BENCH. See
+   pitch_squad() in R/pitch.R.
+   --------------------------------------------------------------------- */
+
+/* Uniform chip footprint. auto-fit lets the column count follow the
+   panel width instead of being hard-coded, so this collapses to one
+   column on a phone with no separate breakpoint. */
+.pitch-row-slots--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 200px);
+  justify-content: center;
+  gap: 12px;
+}
+
+.pitch-slot--scored {
+  width: 200px;
+  box-sizing: border-box;
+  padding: 5px 5px 5px 8px;
+  gap: 8px;
+}
+
+/* Two-line name: light first name above a heavier surname. Both truncate
+   rather than wrap, so a long name can never change the chip's height and
+   break the grid's alignment. */
+.pitch-player--stacked {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1.05;
+  max-width: none;
+  text-align: center;
+}
+/* One-name players: a single centred line, no empty first-name row. */
+.pitch-player--single .pitch-player-surname { line-height: 1.15; }
+.pitch-player--stacked .pitch-player-first {
+  font: 400 11px var(--wc-font);
+  color: rgba(255, 255, 255, 0.55);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pitch-player--stacked .pitch-player-surname {
+  font: 700 17px var(--wc-font);
+  color: var(--wc-white);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Score disc: same 30px footprint as .pitch-badge, mirrored to the right
+   edge of the chip. */
+/* Saira Condensed at 800 rather than Archivo: Archivo tops out at 700, and
+   condensed digits keep a four-character score ("12.5", "-1.5") inside the
+   30px disc without dropping the size. */
+.pitch-score {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wc-panel-dark-divider);
+  font: 800 14px var(--wc-font-display);
+  letter-spacing: 0.01em;
+  color: var(--wc-lime);
+}
+
+/* --- Bench band ------------------------------------------------------ */
+.pitch-row--bench {
+  background: rgba(70, 7, 78, 0.55);
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+}
+.pitch-row--bench .pitch-row-label {
+  color: rgba(255, 255, 255, 0.42);
+}
+.pitch-slot--bench {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.68;
+}
+.pitch-slot--bench .pitch-player-surname {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.pitch-slot--bench .pitch-score {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.65);
+}
+/* Bench chips sit outside their position band, so they carry their own
+   position tag — otherwise there's no way to tell what a benched player
+   is, which is exactly what you need when working out why a bench
+   outscored an XI. */
+.pitch-slot-postag {
+  flex: none;
+  font: 700 9px var(--wc-font-display);
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+}
+/* A benched player who outscored someone selected — only possible when a
+   formation cap blocked the swap. Marked so it doesn't read as a bug. */
+.pitch-slot--beat {
+  border-color: rgba(0, 229, 140, 0.45);
+  opacity: 0.9;
+}
+.pitch-slot--beat .pitch-score {
+  background: rgba(0, 229, 140, 0.18);
+  color: var(--wc-lime);
+}
+
+/* --- Summary strip above the pitch ----------------------------------- */
+.lb-gw-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  font: 400 12px var(--wc-font);
+  color: rgba(255, 255, 255, 0.55);
+}
+.lb-gw-summary-xi {
+  font-weight: 700;
+  color: var(--wc-lime);
+}
+
+/* An in-progress gameweek's pill is marked so "GW3 so far" can't be
+   mistaken for "GW3 final" by someone checking whether they've been
+   overtaken. */
+.lb-gw-pill--live::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--wc-lime);
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.lb-gw-pill--live.lb-gw-pill--active::after {
+  background: var(--wc-white);
+}
+
+/* Caption under the pitch, above the per-player list. */
+.lb-roster-note {
+  font: 400 12px var(--wc-font);
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
+
+@media (max-width: 480px) {
+  .pitch-row-slots--grid { grid-template-columns: repeat(auto-fit, 100%); gap: 8px; }
+  .pitch-slot--scored { width: 100%; }
+  .pitch-player--stacked .pitch-player-surname { font-size: 16px; }
+  .lb-gw-summary { font-size: 11px; }
+}
+
+/* Commissioner notice under the leaderboard status line. Smaller and
+   softer than the status line itself so it reads as an aside rather than
+   competing with the scoring state. Removed by setting LB_NOTICE <- ""
+   in R/leaderboard.R. */
+.lb-status-notice {
+  font: 400 14px var(--wc-font);
+  color: var(--wc-text-quiet);
+  line-height: 1.5;
+  margin: 6px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--wc-coral);
+  border-radius: 0;
+}
+
+@media (max-width: 480px) {
+  .lb-status-notice { font-size: 13px; }
+}
+
+/* --- "Includes matches up to" strip, multi-match ---------------------
+   Lists every match scored on the most recent day, not only the latest
+   one: a Saturday slate arrives as several matches at once, and showing
+   one of them implies the rest aren't counted yet.
+
+   Column count and type size both scale with the number of matches, set
+   by lb_latest_match_strip() in R/leaderboard.R. A single fixture gets
+   full-size crests on one column; a ten-match slate goes compact on
+   three. Overrides the single-match rules earlier in this file.
+   -------------------------------------------------------------------- */
+.lb-latest {
+  display: block;
+  width: 100%;
+  padding: 10px 14px 12px;
+  margin: 0 auto 12px;
+}
+
+.lb-latest-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.lb-latest-grid {
+  display: grid;
+  gap: 10px 12px;
+  justify-items: center;
+}
+.lb-latest--cols1 .lb-latest-grid { grid-template-columns: minmax(0, 1fr); }
+.lb-latest--cols2 .lb-latest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lb-latest--cols3 .lb-latest-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.lb-latest-match {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.lb-latest-code {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--wc-text-muted);
+}
+
+.lb-latest-score {
+  font-weight: 700;
+  color: var(--wc-text);
+}
+
+/* Size ramps. Crest sizing has to beat the 16px rule set by the earlier
+   single-match block, hence the modifier-scoped selectors. */
+.lb-latest--lg .badge-icon      { width: 26px; height: 26px; }
+.lb-latest--lg .lb-latest-score { font-size: 21px; }
+.lb-latest--lg .lb-latest-code  { font-size: 16px; }
+.lb-latest--lg .lb-latest-match { gap: 9px; }
+
+.lb-latest--md .badge-icon      { width: 22px; height: 22px; }
+.lb-latest--md .lb-latest-score { font-size: 18px; }
+.lb-latest--md .lb-latest-code  { font-size: 14px; }
+
+.lb-latest--sm .badge-icon      { width: 18px; height: 18px; }
+.lb-latest--sm .lb-latest-score { font-size: 15px; }
+.lb-latest--sm .lb-latest-code  { font-size: 12px; }
+.lb-latest--sm .lb-latest-match { gap: 5px; }
+
+@media (max-width: 480px) {
+  .lb-latest--cols3 .lb-latest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lb-latest-label { font-size: 12px; }
+  .lb-latest--lg .badge-icon      { width: 22px; height: 22px; }
+  .lb-latest--lg .lb-latest-score { font-size: 18px; }
+  .lb-latest--md .lb-latest-score,
+  .lb-latest--sm .lb-latest-score { font-size: 14px; }
+  .lb-latest--md .lb-latest-code,
+  .lb-latest--sm .lb-latest-code  { font-size: 11px; }
+}
+
+/* --- Standout-performer flame ----------------------------------------
+   Sits proud of the top-right of the score disc for a player inside the
+   league's top five at their position this gameweek. Positioned outside
+   the disc rather than inside it so the score stays fully legible; the
+   chip has no overflow clipping and the grid gap absorbs the overhang.
+   See bestball_hot_players() in R/bestball.R.
+   --------------------------------------------------------------------- */
+.pitch-score {
+  position: relative;
+  overflow: visible;
+}
+
+.pitch-flame {
+  position: absolute;
+  top: -11px;
+  right: -7px;
+  font-size: 15px;
+  line-height: 1;
+  transform: rotate(14deg);
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+}
+
+/* Faint coral ring so the disc itself reads as marked, not just decorated.
+   Drop this rule if the flame alone is enough. */
+.pitch-score--hot {
+  box-shadow: 0 0 0 1.5px rgba(233, 0, 82, 0.55);
+}
+
+@media (max-width: 480px) {
+  .pitch-flame { top: -9px; right: -6px; font-size: 13px; }
+}
+/* --- Squad panel: Transfers view ----------------------------------------
+   The Transfers pill in the gameweek strip swaps the pitch for the
+   entry's rows from the `transfers` audit log. Lives on the dark roster
+   card, so everything here is the dark-panel treatment. Stacked rows —
+   no table — so it holds at 480px without horizontal scroll. */
+
+.lb-transfer-list {
+  padding: 4px 0 8px;
+}
+
+.lb-transfer-row {
+  padding: 16px 0 14px;
+  border-top: 1px solid var(--wc-panel-dark-divider);
+}
+
+.lb-transfer-row:first-child {
+  border-top: none;
+  padding-top: 8px;
+}
+
+.lb-transfer-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.lb-transfer-gw {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.lb-transfer-type {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.lb-transfer-type--commissioner {
+  background: var(--wc-coral);
+  color: var(--wc-white);
+}
+
+.lb-transfer-type--window {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lb-transfer-type--autosub {
+  background: var(--wc-lime);
+  color: var(--wc-ink);
+}
+
+.lb-transfer-date {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-transfer-players {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lb-transfer-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lb-transfer-dir {
+  flex: 0 0 38px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+
+.lb-transfer-dir--out {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.lb-transfer-dir--in {
+  color: var(--wc-lime);
+}
+
+.lb-transfer-player .badge-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.lb-transfer-id {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lb-transfer-name {
+  font-weight: 600;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-transfer-team {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.lb-transfer-note {
+  margin-top: 10px;
+  font: 400 14px/1.5 var(--wc-font);
+  color: rgba(255, 255, 255, 0.60);
+}
+
+.lb-transfer-empty {
+  color: rgba(255, 255, 255, 0.7);
+  padding: 10px 0 4px;
+}
+
+@media (max-width: 480px) {
+  .lb-transfer-name { font-size: 17px; }
+  .lb-transfer-meta { flex-wrap: wrap; }
+  .lb-transfer-date { margin-left: 0; width: 100%; }
 }

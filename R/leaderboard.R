@@ -2,10 +2,15 @@
 # squad panel (right) showing the selected entry's 15 players on the
 # banded pitch view, with a gameweek selector above it.
 #
-# Scoring is LIVE: points are computed on the fly from the
+# Scoring is LIVE and BESTBALL: points are computed on the fly from the
 # player_match_stats tab (5-min memoised read) through the pure engine
-# in R/scoring.R — nothing is precomputed or stored, so a scoring
-# correction fixes all history on the next render. Winnings are not
+# in R/scoring.R, given a gameweek by R/gameweeks.R, then reduced to
+# each entry's optimal XI per gameweek by R/bestball.R. An entry's total
+# is the sum of its best XI across every gameweek that has stats — NOT
+# the sum of all 15 rostered players, which is what this file used to
+# show and which both inflates totals and ranks entries differently.
+# Nothing is precomputed or stored, so a scoring correction fixes all
+# history on the next render. Winnings are not
 # computed or displayed at all right now — the prize structure is
 # field-size dependent and gets finalised post-lock (see the note
 # above LB_PRIZES). If scoring ever fails, the board logs the error
@@ -30,6 +35,18 @@ VOID_ENTRY_IDS <- c(
   "863344bd-51cc-41c6-9e1d-c22ed70b5068"
 )
 
+# Temporary notice under the leaderboard status line. Set to "" to remove
+# it once every entry is paid and the prize structure is published.
+#
+# It lives here, next to VOID_ENTRY_IDS and the prize note, rather than
+# buried in the renderUI: this is copy with an expiry date, and the failure
+# mode for that kind of string is quietly outliving its usefulness on a
+# public board.
+LB_NOTICE <- paste(
+  "Final payments are being chased up \u2014 the prize pool will be",
+  "confirmed once the paid field is settled."
+)
+
 # Prize structure is field-size dependent (see Rules -> Prize structure:
 # top 10%/15% of paid entries, tiers by field size) and can only be
 # finalised once entries lock and the paid field is known. Winnings are
@@ -38,16 +55,21 @@ VOID_ENTRY_IDS <- c(
 # post-lock.
 
 # Total points per entry, aligned to the rows of `entries`.
-# `scored` is the output of score_player_match_stats(), or NULL when no
-# stats exist yet / scoring failed — in which case every entry gets NA
-# and the UI renders pre-scoring em-dashes.
-lb_entry_points <- function(entries, scored, all_picks) {
-  if (is.null(scored) || nrow(scored) == 0) return(rep(NA_real_, nrow(entries)))
-  per_entry <- entry_player_points(scored, all_picks) |>
-    group_by(entry_id) |>
-    summarise(total = sum(points), .groups = "drop")
-  out <- per_entry$total[match(as.character(entries$entry_id),
-                               per_entry$entry_id)]
+# `gw_points` is the output of bestball_gameweek_points() — one row per
+# (entry_id, gameweek) with that gameweek's optimal-XI points. NULL when
+# no stats exist yet / scoring or bestball failed, in which case every
+# entry gets NA and the UI renders pre-scoring em-dashes.
+#
+# An entry present in `entries` but absent from `gw_points` scores 0, not
+# NA: that is a real zero (no rostered player has scored) rather than a
+# missing measurement.
+lb_entry_points <- function(entries, gw_points) {
+  if (is.null(gw_points) || nrow(gw_points) == 0) {
+    return(rep(NA_real_, nrow(entries)))
+  }
+  totals <- aggregate(xi_points ~ entry_id, data = gw_points, FUN = sum)
+  out <- totals$xi_points[match(as.character(entries$entry_id),
+                                as.character(totals$entry_id))]
   ifelse(is.na(out), 0, out)
 }
 
@@ -119,41 +141,169 @@ lb_fmt_int <- function(x) {
   ifelse(is.na(x), "\u2014", format(as.integer(x)))
 }
 
+# --- Transfers view --------------------------------------------------------
+
+# The squad panel's Transfers tab: the selected entry's rows from the
+# `transfers` audit log (commissioner corrections, window transfers,
+# club-clash auto-subs), newest first. Player names and clubs resolve at
+# render time from the players tab — the log stores ids only, same
+# principle as everywhere else. An entry with no history gets an explicit
+# empty state rather than a hidden tab: proving absence is part of the
+# transparency.
+#
+# `transfers` is the entry's rows (already filtered), `players` the full
+# players tab, `club_name` the short_code -> display name closure built
+# in the renderUI.
+lb_transfers_panel <- function(transfers, players, club_name) {
+  if (is.null(transfers) || nrow(transfers) == 0) {
+    return(div(class = "lb-transfer-empty",
+               p("No transfers for this entry.")))
+  }
+  
+  transfers <- transfers |>
+    arrange(desc(as.character(created_at)),
+            desc(suppressWarnings(as.integer(effective_gw))))
+  
+  player_row <- function(pid, dir) {
+    pl <- players |> filter(player_id == as.character(pid))
+    nm <- if (nrow(pl) == 1) pl$name else paste0("Player ", pid)
+    tm <- if (nrow(pl) == 1) pl$team else NA_character_
+    div(
+      class = "lb-transfer-player",
+      span(class = paste0("lb-transfer-dir lb-transfer-dir--",
+                          tolower(dir)),
+           dir),
+      if (!is.na(tm)) club_crest(tm),
+      div(
+        class = "lb-transfer-id",
+        span(class = "lb-transfer-name", nm),
+        if (!is.na(tm)) {
+          span(class = "lb-transfer-team", club_name(tm))
+        }
+      )
+    )
+  }
+  
+  type_label <- c(commissioner = "Commissioner",
+                  window       = "Transfer window",
+                  autosub      = "Auto-sub")
+  
+  rows <- lapply(seq_len(nrow(transfers)), function(i) {
+    tr  <- transfers[i, ]
+    typ <- tolower(trimws(tr$type %||% ""))
+    if (!typ %in% names(type_label)) typ <- "commissioner"
+    gw  <- suppressWarnings(as.integer(tr$effective_gw))
+    dt  <- as.character(tr$created_at)
+    dt  <- if (length(dt) == 0 || is.na(dt)) "" else substr(dt, 1, 10)
+    note <- as.character(tr$note)
+    note <- if (length(note) == 0 || is.na(note)) "" else trimws(note)
+    
+    div(
+      class = "lb-transfer-row",
+      div(
+        class = "lb-transfer-meta",
+        if (!is.na(gw)) {
+          span(class = "lb-transfer-gw", paste0("From GW", gw))
+        },
+        span(class = paste0("lb-transfer-type lb-transfer-type--", typ),
+             type_label[[typ]]),
+        if (nzchar(dt)) span(class = "lb-transfer-date", dt)
+      ),
+      div(
+        class = "lb-transfer-players",
+        player_row(tr$out_player_id, "OUT"),
+        player_row(tr$in_player_id,  "IN")
+      ),
+      if (nzchar(note)) {
+        div(class = "lb-transfer-note", note)
+      }
+    )
+  })
+  
+  div(class = "lb-transfer-list", rows)
+}
+
 # --- "Includes matches up to" strip ---------------------------------------
 
-# Built from the most recent match in player_match_stats (ISO utc_date
-# strings sort lexicographically), with both teams' flags. Returns NULL
-# when no stats exist yet, so pre-scoring boards show nothing extra.
-# Sides are ordered winner-first (arbitrary on a draw).
+# Every match scored on the MOST RECENT DAY present in
+# player_match_stats, not just the single most recent match \u2014 a
+# Saturday afternoon lands three-o'clock kick-offs together, and showing
+# one of them implies the others aren't counted yet. Laid out on a
+# three-column grid so a full slate reads at a glance.
+#
+# ISO utc_date strings sort lexicographically, so the day is taken by
+# max() on the first ten characters. Sides are ordered home-first where
+# `is_home` is available, winner-first otherwise. Returns NULL when no
+# stats exist, so pre-scoring boards show nothing extra.
 lb_latest_match_strip <- function(stats) {
   if (is.null(stats) || nrow(stats) == 0) return(NULL)
   if (!all(c("match_id", "utc_date", "team", "team_goals_for") %in%
            names(stats))) return(NULL)
   
-  latest_id <- stats$match_id[order(as.character(stats$utc_date),
-                                    decreasing = TRUE)][1]
-  m <- stats[stats$match_id == latest_id, ]
-  sides <- unique(m[, c("team", "team_goals_for")])
-  if (nrow(sides) != 2) return(NULL)
-  sides <- sides[order(-sides$team_goals_for), ]
+  day_of <- substr(as.character(stats$utc_date), 1, 10)
+  ok     <- !is.na(day_of) & nzchar(day_of)
+  if (!any(ok)) return(NULL)
+  latest_day <- max(day_of[ok])
   
-  date_txt <- tryCatch(
-    format(as.Date(substr(as.character(m$utc_date[1]), 1, 10)), "%d %b"),
-    error = function(e) ""
-  )
+  day <- stats[ok & day_of == latest_day, , drop = FALSE]
+  if (nrow(day) == 0) return(NULL)
+  
+  has_home <- "is_home" %in% names(day)
+  cols     <- c("match_id", "team", "team_goals_for",
+                if (has_home) "is_home")
+  sides    <- unique(day[, cols, drop = FALSE])
+  
+  cells <- lapply(unique(sides$match_id), function(mid) {
+    m <- sides[sides$match_id == mid, , drop = FALSE]
+    if (nrow(m) != 2) return(NULL)
+    
+    home_first <- FALSE
+    if (has_home) {
+      hf <- toupper(trimws(as.character(m$is_home))) %in% c("TRUE", "1")
+      if (sum(hf) == 1) {
+        m <- m[order(!hf), , drop = FALSE]
+        home_first <- TRUE
+      }
+    }
+    if (!home_first) {
+      m <- m[order(-suppressWarnings(as.numeric(m$team_goals_for))), ,
+             drop = FALSE]
+    }
+    
+    div(
+      class = "lb-latest-match",
+      badge_tag(m$team[1], size = "sm"),
+      span(class = "lb-latest-code",  m$team[1]),
+      span(class = "lb-latest-score",
+           paste0(m$team_goals_for[1], "\u2013", m$team_goals_for[2])),
+      span(class = "lb-latest-code",  m$team[2]),
+      badge_tag(m$team[2], size = "sm")
+    )
+  })
+  cells <- Filter(Negate(is.null), cells)
+  n <- length(cells)
+  if (n == 0) return(NULL)
+  
+  # Scale to the slate. One match on a three-column grid at compact sizing
+  # looks like a mistake; ten matches at full size doesn't fit. Columns and
+  # type size are both driven by the count, so a midweek single fixture and
+  # a Saturday full slate each look deliberate.
+  #
+  # Four goes to two columns rather than three: 3+1 leaves an orphan.
+  cols <- if (n <= 2) n else if (n == 4) 2L else 3L
+  size <- if (n <= 2) "lg" else if (n <= 6) "md" else "sm"
+  
+  date_txt <- tryCatch(format(as.Date(latest_day), "%d %b"),
+                       error = function(e) "")
   
   div(
-    class = "lb-latest",
-    span(class = "lb-latest-label", "Includes matches up to:"),
-    span(
-      class = "lb-latest-match",
-      badge_tag(sides$team[1], size = "sm"),
-      span(class = "lb-latest-score",
-           paste0(sides$team[1], " ", sides$team_goals_for[1], "\u2013",
-                  sides$team_goals_for[2], " ", sides$team[2])),
-      badge_tag(sides$team[2], size = "sm"),
+    class = paste0("lb-latest lb-latest--cols", cols, " lb-latest--", size),
+    div(
+      class = "lb-latest-head",
+      span(class = "lb-latest-label", "Includes matches up to"),
       span(class = "lb-latest-date", date_txt)
-    )
+    ),
+    div(class = "lb-latest-grid", cells)
   )
 }
 
@@ -231,20 +381,207 @@ leaderboard_server_logic <- function(input, output, session,
   
   lb_selected_id <- reactiveVal(NULL)
   
-  # Scored player-match stats. NULL when the stats tab is empty or
-  # scoring fails (logged loudly); both render as em-dashes downstream.
+  # Which view the squad panel is showing: "squad" (opening squad, season
+  # totals, no XI) or "gw:<n>". Deliberately NOT reset when the selected
+  # entry changes — clicking down the board while holding GW3 is how you
+  # compare a gameweek across entries.
+  #
+  # NULL means "the user hasn't chosen", which is distinct from an explicit
+  # "squad": untouched defaults to the latest gameweek with any stats, so
+  # the panel opens on what's actually happening, while a deliberate click
+  # on Opening squad is respected. Without that distinction the default
+  # would immediately overwrite anyone who chose Opening squad.
+  lb_gw_view <- reactiveVal(NULL)
+  
+  observeEvent(input$lb_gw_select, {
+    v <- input$lb_gw_select
+    if (is.null(v) || !nzchar(v)) return()
+    message(">>> OBSERVE lb_gw_select — ", v)
+    lb_gw_view(v)
+  })
+  
+  # All roster picks (local snapshot if present, live Sheets read
+  # otherwise). Hoisted out of lb_data() because bestball and the
+  # ownership table both need them, and one read should serve all three.
+  lb_picks <- reactive({
+    if (view_state() != "leaderboard") return(NULL)
+    picks <- get_all_picks_local()
+    if (is.null(picks)) {
+      message("    [leaderboard] no picks snapshot — live Sheets read")
+      picks <- get_all_roster_picks()
+    }
+    picks
+  })
+  
+  # Gameweek -> period map, for period-aware roster selection after the
+  # September transfer window. NULL when the gameweeks tab is
+  # unreadable, which bestball treats as "no period filtering".
+  lb_gw_period <- reactive({
+    gwt <- tryCatch(get_gameweeks_cached(), error = function(e) NULL)
+    if (is.null(gwt) || nrow(gwt) == 0) return(NULL)
+    setNames(as.integer(gwt$period), as.character(gwt$gw))
+  })
+  
+  # The roster an entry HELD FOR A GIVEN GAMEWEEK — the period-1 fifteen
+  # for GW1-2, the period-2 fifteen from GW3 — resolved to name / team /
+  # position. This is what the squad panel must draw a gameweek pitch
+  # from. get_picks_for_entry() returns the roster held NOW (highest
+  # period), which is right for the season view but wrong for a past
+  # gameweek: overlaying a period-1 XI onto a period-2 roster drops the
+  # outgoing player's XI chip and shows ten, not eleven.
+  #
+  # Same roster rule as .bb_entry_roster() in R/bestball.R, so the pitch
+  # and the score always agree. Returns NULL whenever the period cannot
+  # be resolved (no period column, no map, no rows) — callers fall back
+  # to the current roster rather than an empty pitch.
+  lb_period_roster <- function(eid, gw) {
+    all_picks <- lb_picks()
+    gwp       <- lb_gw_period()
+    if (is.null(all_picks) || nrow(all_picks) == 0) return(NULL)
+    if (is.null(gwp) || !"period" %in% names(all_picks)) return(NULL)
+    
+    want <- suppressWarnings(as.integer(unname(gwp[as.character(gw)])))
+    if (length(want) != 1L || is.na(want)) return(NULL)
+    
+    mine <- all_picks[as.character(all_picks$entry_id) == as.character(eid), ,
+                      drop = FALSE]
+    pp   <- suppressWarnings(as.integer(mine$period))
+    mine <- mine[!is.na(pp) & pp == want, , drop = FALSE]
+    if (nrow(mine) == 0) return(NULL)
+    
+    message("    [leaderboard] GW", gw, " pitch drawn from period ", want,
+            " roster — ", nrow(mine), " picks")
+    
+    players <- get_players_all_local()
+    mine |>
+      mutate(player_id = as.integer(player_id)) |>
+      distinct(player_id) |>
+      left_join(players |> select(player_id, name, team, position),
+                by = "player_id") |>
+      mutate(pid = as.character(player_id)) |>
+      select(pid, player_id, name, team, position)
+  }
+  
+  # The club each player was AT for a given gameweek. The players table
+  # holds the club NOW, so after a deadline-day move (Ndiaye EVE -> MCI)
+  # a GW2 pitch drawn from it shows two City crests in a one-per-club
+  # squad. player_match_stats records the club on every appearance, so
+  # the club is taken from the player's most recent stat row at or before
+  # the selected gameweek. Players with no appearance yet keep the
+  # players-table club — there is nothing better to go on.
+  #
+  # Display only. Nothing here touches scoring.
+  lb_historic_clubs <- function(squad, scored, gw) {
+    if (is.null(scored) || nrow(scored) == 0) return(squad)
+    if (!all(c("player_id", "team", "gameweek") %in% names(scored))) return(squad)
+    
+    g <- suppressWarnings(as.numeric(scored$gameweek))
+    s <- scored[!is.na(g) & g <= gw & !is.na(scored$team), , drop = FALSE]
+    if (nrow(s) == 0) return(squad)
+    
+    s$player_id <- as.character(s$player_id)
+    s$gameweek  <- suppressWarnings(as.numeric(s$gameweek))
+    s <- s[order(s$player_id, -s$gameweek), , drop = FALSE]
+    s <- s[!duplicated(s$player_id), c("player_id", "team"), drop = FALSE]
+    
+    then <- setNames(as.character(s$team), s$player_id)
+    hit  <- squad$pid %in% names(then)
+    moved <- hit & squad$team != unname(then[squad$pid])
+    if (any(moved)) {
+      message("    [leaderboard] GW", gw, " pitch: club restored for ",
+              sum(moved), " player(s) — ",
+              paste(squad$name[moved], collapse = ", "))
+    }
+    squad$team[hit] <- unname(then[squad$pid[hit]])
+    squad
+  }
+  
+  # Scored player-match stats, with a gameweek on every row. NULL when
+  # the stats tab is empty or scoring fails (logged loudly); both render
+  # as em-dashes downstream.
+  #
+  # Stat rows for a player_id the app doesn't know are DROPPED rather
+  # than allowed to reach score_player_match_stats(), which stops hard on
+  # an unresolvable position. That strictness is right in the ingest,
+  # where a human sees the console; here it would turn the whole board
+  # into dashes because one player is unmapped. A dropped row scores for
+  # nobody, so the loud message is the thing that matters.
   lb_scored <- reactive({
     if (view_state() != "leaderboard") return(NULL)
     stats <- get_match_stats_cached()
     if (is.null(stats) || nrow(stats) == 0) return(NULL)
-    tryCatch(
-      score_player_match_stats(stats, get_players_all_local()),
+    
+    players <- get_players_all_local()
+    
+    # Re-resolve identity from api_player_id before anything else: a
+    # mapping filled in since the ingest ran takes effect here, across
+    # all history, with no re-scrape.
+    stats <- resolve_player_ids(stats, players)
+    
+    stats$player_id <- as.character(stats$player_id)
+    unknown <- is.na(stats$player_id) |
+      !stats$player_id %in% as.character(players$player_id)
+    if (any(unknown)) {
+      ids <- unique(stats$player_id[unknown])
+      message(">>> [leaderboard] *** ", sum(unknown), " stat row(s) across ",
+              length(ids), " unknown player_id(s) DROPPED — they score for ",
+              "nobody. Check the players snapshot is current and the ",
+              "api_player_id mapping is complete: ",
+              paste(utils::head(ids, 8), collapse = ", "))
+      stats <- stats[!unknown, , drop = FALSE]
+    }
+    if (nrow(stats) == 0) return(NULL)
+    
+    scored <- tryCatch(
+      score_player_match_stats(stats, players),
       error = function(e) {
         message(">>> [leaderboard] *** SCORING FAILED — board renders ",
                 "dashes *** : ", conditionMessage(e))
         NULL
       }
     )
+    if (is.null(scored)) return(NULL)
+    
+    tryCatch(
+      assign_gameweeks(scored),
+      error = function(e) {
+        message(">>> [leaderboard] *** GAMEWEEK ASSIGNMENT FAILED — board ",
+                "renders dashes *** : ", conditionMessage(e))
+        NULL
+      }
+    )
+  })
+  
+  # Optimal-XI points per entry per gameweek. THIS is the contest: the
+  # board's Pts column, the gameweek pills and the squad panel all read
+  # from here, so there is exactly one definition of a score in the app.
+  lb_gw_points <- reactive({
+    scored <- lb_scored()
+    picks  <- lb_picks()
+    if (is.null(scored) || nrow(scored) == 0) return(NULL)
+    if (is.null(picks)  || nrow(picks)  == 0) return(NULL)
+    if (!"gameweek" %in% names(scored) || all(is.na(scored$gameweek))) {
+      message(">>> [leaderboard] *** no scored row carries a gameweek — ",
+              "bestball cannot run, board renders dashes ***")
+      return(NULL)
+    }
+    tryCatch(
+      bestball_gameweek_points(scored, picks,
+                               players   = get_players_all_local(),
+                               gw_period = lb_gw_period()),
+      error = function(e) {
+        message(">>> [leaderboard] *** BESTBALL FAILED — board renders ",
+                "dashes *** : ", conditionMessage(e))
+        NULL
+      }
+    )
+  })
+  
+  # Gameweeks with any scored rows — the pills that light up. A gameweek
+  # becomes selectable as soon as its first match is ingested, showing
+  # points to date for that round rather than waiting for it to close.
+  lb_available_gws <- reactive({
+    gameweeks_with_stats(lb_scored())
   })
   
   # Ranked entries. Reads the entries tab once per visit to the
@@ -268,13 +605,7 @@ leaderboard_server_logic <- function(input, output, session,
     entries <- entries |> filter(!entry_id %in% VOID_ENTRY_IDS)
     if (nrow(entries) == 0) return(entries)
     
-    all_picks <- get_all_picks_local()
-    if (is.null(all_picks)) {
-      message("    [leaderboard] no picks snapshot — live Sheets read")
-      all_picks <- get_all_roster_picks()
-    }
-    
-    entries$points <- lb_entry_points(entries, lb_scored(), all_picks)
+    entries$points <- lb_entry_points(entries, lb_gw_points())
     entries <- entries |>
       arrange(desc(points), display_name, entry_name)
     entries$rank_label <- lb_rank_labels(entries$points)
@@ -302,12 +633,32 @@ leaderboard_server_logic <- function(input, output, session,
   output$lb_status_line <- renderUI({
     rows <- lb_data()
     if (is.null(rows)) return(NULL)
-    if (nrow(rows) == 0 || all(is.na(rows$points))) {
-      span("Scoring goes live after Gameweek 1 \u2014 points
-            will appear here as matches are scored.")
-    } else {
-      span("Scores may be provisional while match stats are collated.")
+    
+    notice <- if (nzchar(LB_NOTICE)) {
+      div(class = "lb-status-notice", LB_NOTICE)
     }
+    
+    line <- if (nrow(rows) == 0 || all(is.na(rows$points))) {
+      span("Scoring goes live once Gameweek 1 matches are in \u2014 points
+            will appear here as they are scored.")
+    } else {
+      gws <- lb_available_gws()
+      open_gw <- gws[!vapply(gws, gameweek_is_closed, logical(1))]
+      span(
+        paste0(
+          "Best XI scoring. Gameweeks scored: ",
+          if (length(gws) == 0) "\u2014" else paste(gws, collapse = ", "),
+          ".",
+          if (length(open_gw) > 0)
+            paste0(" GW", paste(open_gw, collapse = ", "),
+                   " still in progress \u2014 points to date only.")
+          else "",
+          " Scores may be provisional while match stats are collated."
+        )
+      )
+    }
+    
+    tagList(line, notice)
   })
   
   # Board (left) ------------------------------------------------------
@@ -482,18 +833,166 @@ leaderboard_server_logic <- function(input, output, session,
     first_gw <- as.integer(cfg$gameweek_first %||% 1L)
     last_gw  <- as.integer(cfg$gameweek_last  %||% 19L)
     
+    avail  <- lb_available_gws()
+    closed <- avail[vapply(avail, gameweek_is_closed, logical(1))]
+    
+    # Default to the latest gameweek carrying stats; fall back to the
+    # opening squad only when nothing has been scored yet. A stale selection
+    # (a gameweek whose stats were withdrawn) drops back to the default
+    # rather than rendering a pitch nobody can navigate away from.
+    default <- if (length(avail) > 0) paste0("gw:", max(avail)) else "squad"
+    chosen  <- lb_gw_view()
+    active  <- if (is.null(chosen)) default else chosen
+    
+    sel_gw <- NA_integer_
+    if (grepl("^gw:", active)) {
+      g <- suppressWarnings(as.integer(sub("^gw:", "", active)))
+      if (!is.na(g) && g %in% avail) {
+        sel_gw <- g
+      } else {
+        active <- default
+        if (grepl("^gw:", default)) sel_gw <- max(avail)
+      }
+    }
+    
     selector <- pitch_gw_selector(
       input_id      = "lb_gw_select",
-      active        = "squad",
+      active        = active,
       first_gw      = first_gw,
       last_gw       = last_gw,
-      available_gws = integer(0)
+      available_gws = avail,
+      closed_gws    = closed
     )
+    
+    # --- The transfers view ---------------------------------------------
+    # "transfers": the entry's rows from the transfers audit log, in
+    # place of the pitch. Cached read (5-min TTL); the tab not existing
+    # yet renders as the empty state, never an error.
+    if (identical(active, "transfers")) {
+      tr_all <- tryCatch(get_transfers_cached(), error = function(e) {
+        message(">>> [leaderboard] get_transfers_cached failed: ",
+                conditionMessage(e))
+        NULL
+      })
+      tr_entry <- if (is.null(tr_all) || nrow(tr_all) == 0) NULL else {
+        tr_all |> filter(as.character(entry_id) == as.character(eid))
+      }
+      return(tagList(
+        panel_header,
+        selector,
+        lb_transfers_panel(tr_entry, get_players_all_local(), club_name)
+      ))
+    }
+    
+    # --- The squad view -------------------------------------------------
+    # "squad": all 15 in their bands with season totals, no XI split.
+    # "gw:<n>": the optimal XI in the bands, everyone else on the bench,
+    #           each chip carrying that gameweek's points.
+    #
+    # The pitch is drawn from the roster held FOR THE SELECTED GAMEWEEK.
+    # `picks` (above) is the roster held now, which is right for the season
+    # view and the stats list, but a GW1/GW2 pitch on an entry that has
+    # since been auto-subbed must show the period-1 fifteen — otherwise the
+    # outgoing player's XI chip has nothing to land on. Falls back to the
+    # current roster only if the period cannot be resolved.
+    squad_base <- picks |>
+      mutate(pid = as.character(player_id)) |>
+      select(pid, player_id, name, team, position)
+    if (!is.na(sel_gw)) {
+      gw_roster <- lb_period_roster(eid, sel_gw)
+      if (!is.null(gw_roster)) squad_base <- gw_roster
+      squad_base <- lb_historic_clubs(squad_base, lb_scored(), sel_gw)
+    }
+    
+    if (is.na(sel_gw)) {
+      squad <- squad_base
+      squad$points <- as.numeric(stats$pts)
+      squad$in_xi  <- NA
+      summary_strip <- NULL
+      gw_note <- NULL
+    } else {
+      xi <- tryCatch(
+        bestball_entry_xi(lb_scored(), lb_picks(), eid, gw = sel_gw,
+                          players   = get_players_all_local(),
+                          gw_period = lb_gw_period()),
+        error = function(e) {
+          message(">>> [leaderboard] bestball_entry_xi failed: ",
+                  conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(xi)) {
+        squad <- squad_base
+        squad$points <- NA_real_
+        squad$in_xi  <- NA
+        summary_strip <- pitch_gw_summary("Gameweek points unavailable")
+        gw_note <- NULL
+      } else {
+        xi$pid <- as.character(xi$player_id)
+        squad <- squad_base |>
+          left_join(xi |> select(pid, points, in_xi), by = "pid")
+        squad$points <- ifelse(is.na(squad$points), 0, squad$points)
+        squad$in_xi  <- ifelse(is.na(squad$in_xi), FALSE, squad$in_xi)
+        
+        is_closed <- sel_gw %in% closed
+        n_played  <- length(unique(
+          lb_scored()$match_id[!is.na(lb_scored()$gameweek) &
+                                 lb_scored()$gameweek == sel_gw]))
+        status <- if (is_closed) {
+          paste0("GW", sel_gw, " · final")
+        } else {
+          paste0("GW", sel_gw, " · in progress · ", n_played,
+                 " of 10 matches scored")
+        }
+        summary_strip <- pitch_gw_summary(
+          status,
+          xi_points    = sum(squad$points[squad$in_xi]),
+          bench_points = sum(squad$points[!squad$in_xi])
+        )
+        
+        # Only while the gameweek is open: most of a squad sits on 0 early
+        # on, so the XI/bench split is decided by salary rather than by
+        # performance. Saying so stops it reading as the app choosing badly.
+        gw_note <- if (!is_closed) {
+          div(class = "lb-gw-note",
+              "Bench players don't score. While a gameweek is in progress
+               most of a squad is still on zero, so the split falls to
+               salary — the total is the same either way.")
+        }
+      }
+    }
+    
+    # Flames mark the league's top five at each position for the selected
+    # gameweek — league-wide, not within the entry, so it means "one of the
+    # best returns anywhere this week" rather than "your best player".
+    hot_ids <- if (is.na(sel_gw)) character(0) else {
+      tryCatch(bestball_hot_players(lb_scored(), sel_gw),
+               error = function(e) character(0))
+    }
+    
+    pitch_ui <- if (is.null(lb_gw_points())) {
+      pitch_readonly(picks, "No picks found for this entry.")
+    } else {
+      pitch_squad(squad, "No picks found for this entry.", hot_ids = hot_ids)
+    }
+    
+    # The per-player Pts in the list below are each player's OWN total across
+    # every appearance. They deliberately do not sum to the entry total,
+    # which counts only each gameweek's best XI — without this line the
+    # panel reads as an arithmetic error to anyone who adds up the column.
+    totals_note <- if (!is.null(lb_gw_points())) {
+      div(class = "lb-roster-note",
+          "Season totals for all 15. The entry total counts only the best XI
+           in each gameweek, so this column will not add up to it.")
+    }
     
     tagList(
       panel_header,
       selector,
-      pitch_readonly(picks, "No picks found for this entry."),
+      summary_strip,
+      pitch_ui,
+      gw_note,
+      totals_note,
       div(class = "lb-roster-list", stats_header, row_uis)
     )
   })
@@ -505,16 +1004,35 @@ leaderboard_server_logic <- function(input, output, session,
   # Ownership across the whole contest: how many entries hold each
   # player, ranked. Built from the same snapshots as the board (or the
   # same live fallbacks), so it costs nothing extra.
+  #
+  # PERIOD-AWARE: roster_picks holds a full roster per period, so an entry
+  # touched by a club-clash auto-sub or a window transfer has 30 rows.
+  # Ownership is "who holds him NOW", so each entry is reduced to its
+  # highest present period before counting — otherwise every corrected
+  # entry double-counts and percentages exceed 100.
   lb_ownership_data <- reactive({
     rows <- lb_data()
     if (is.null(rows) || nrow(rows) == 0) return(NULL)
     
-    picks <- get_all_picks_local()
-    if (is.null(picks)) picks <- get_all_roster_picks()
-    if (nrow(picks) == 0) return(NULL)
+    picks <- lb_picks()
+    if (is.null(picks) || nrow(picks) == 0) return(NULL)
+    
+    if ("period" %in% names(picks)) {
+      pp <- suppressWarnings(as.integer(picks$period))
+      picks <- picks |>
+        mutate(.period = ifelse(is.na(pp), 1L, pp)) |>
+        group_by(entry_id) |>
+        filter(.period == max(.period)) |>
+        ungroup() |>
+        select(-.period)
+    }
+    message("    [leaderboard] ownership from ", nrow(picks),
+            " current-roster picks across ",
+            length(unique(picks$entry_id)), " entries")
     
     players <- get_players_all_local()
     picks |>
+      mutate(player_id = as.integer(player_id)) |>
       count(player_id, name = "owned") |>
       left_join(players |> select(player_id, name, team, position),
                 by = "player_id") |>
@@ -687,6 +1205,7 @@ leaderboard_server_logic <- function(input, output, session,
     if (view_state() != "leaderboard") {
       lb_selected_id(NULL)
       lb_own_limit(10L)
+      lb_gw_view(NULL)
     }
   })
 }

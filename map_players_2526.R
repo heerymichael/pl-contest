@@ -31,7 +31,7 @@
 #   # then edit DRY_RUN below to FALSE and source again
 # --------------------------------------------------------------------------
 
-DRY_RUN <- FALSE
+DRY_RUN <- TRUE
 
 library(dplyr)
 library(googlesheets4)

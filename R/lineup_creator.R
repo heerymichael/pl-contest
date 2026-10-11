@@ -8,11 +8,21 @@
 #              No localStorage. Closes editor in place on success.
 #
 # Lock-time:
-#   - Picker UI elements respect is_locked_reactive (pool rows not
-#     clickable, Remove/Undo/Reset hidden, Submit/Save replaced with
-#     "Contest locked").
-#   - Submit/save handlers fresh-read is_locked() as a defence against
-#     stale UI.
+#   - Picker UI elements respect can_edit() (pool rows not clickable,
+#     Remove/Undo/Reset hidden, Submit/Save replaced with "Contest
+#     locked"). can_edit() is !is_locked_reactive() unless the caller
+#     passes can_edit_reactive — My Lineups passes one that is also TRUE
+#     while the Gameweek 3 transfer window is open, so the edit picker
+#     works post-lock for transfers only.
+#   - Submit/save handlers fresh-read is_locked() / can_edit() as a
+#     defence against stale UI.
+#
+# Transfer window (mode = "edit", contest locked, window open):
+#   - transfer_baseline_ids (from My Lineups) is the roster the entry
+#     held when the window opened. Swaps are counted against it, so the
+#     counter is cumulative across saves and A->B->A costs nothing.
+#   - Save routes to apply_transfers() (R/sheets.R), never to
+#     update_entry_picks(), which hard-stops post-lock.
 
 message(">>> SOURCED R/lineup_creator.R at ", format(Sys.time()))
 
@@ -137,12 +147,26 @@ lineup_picker_server_logic <- function(input, output, session,
                                        initial_picks      = reactive(integer(0)),
                                        editing_entry_id   = reactive(NULL),
                                        is_locked_reactive = reactive(FALSE),
+                                       can_edit_reactive  = NULL,
+                                       transfer_baseline_ids = reactive(NULL),
                                        on_dirty_change    = function(is_dirty) {},
                                        on_save_success    = function() {}) {
   
   message(">>> ENTER lineup_picker_server_logic mode=", mode)
   
   iid <- function(name) picker_id(mode, name)
+  
+  # May the roster be changed right now? Defaults to "not locked"; the
+  # edit picker is handed a window-aware version by My Lineups.
+  can_edit <- reactive({
+    if (!is.null(can_edit_reactive)) isTRUE(can_edit_reactive())
+    else !isTRUE(is_locked_reactive())
+  })
+  
+  # Transfer mode = editing an existing entry, contest locked, window open.
+  in_transfer_window <- reactive({
+    mode == "edit" && isTRUE(is_locked_reactive()) && can_edit()
+  })
   
   # State -----------------------------------------------------------
   
@@ -372,6 +396,17 @@ lineup_picker_server_logic <- function(input, output, session,
     })
   }
   
+  # Transfer usage (edit mode) --------------------------------------
+  # Swaps vs the window-open baseline. Falls back to the loaded roster
+  # if My Lineups did not supply a baseline (pre-lock editing).
+  transfer_usage <- reactive({
+    base <- transfer_baseline_ids()
+    if (is.null(base) || length(base) == 0) base <- baseline_ids()
+    used <- length(setdiff(as.integer(base), as.integer(selected_ids())))
+    cfg  <- config_data()
+    list(used = used, max = as.integer(cfg$transfers_max %||% 2L))
+  })
+  
   # Derived state ---------------------------------------------------
   
   selected_players <- reactive({
@@ -495,7 +530,7 @@ lineup_picker_server_logic <- function(input, output, session,
   output[[iid("player_pool_ui")]] <- renderUI({
     if (editor_dormant()) return(NULL)   # edit picker idle — skip the build
     ui_ready()   # re-render once after client-side binding
-    locked        <- is_locked_reactive()
+    locked        <- !can_edit()
     hide_unavail  <- isTRUE(input[[iid("hide_unavailable")]])
     pool          <- filtered_pool()
     sel           <- selected_ids()
@@ -732,7 +767,7 @@ lineup_picker_server_logic <- function(input, output, session,
   output[[iid("roster_ui")]] <- renderUI({
     if (editor_dormant()) return(NULL)   # edit picker idle — skip the build
     ui_ready()   # re-render once after client-side binding
-    locked <- is_locked_reactive()
+    locked <- !can_edit()
     sp     <- selected_players()
     cfg    <- config_data()
     
@@ -874,7 +909,7 @@ lineup_picker_server_logic <- function(input, output, session,
   output[[iid("picker_actions")]] <- renderUI({
     if (editor_dormant()) return(NULL)   # edit picker idle — skip the build
     ui_ready()   # re-render once after client-side binding
-    locked <- is_locked_reactive()
+    locked <- !can_edit()
     if (locked) return(NULL)
     div(
       class = "lineup-picker-actions",
@@ -888,13 +923,22 @@ lineup_picker_server_logic <- function(input, output, session,
   output[[iid("submit_button_ui")]] <- renderUI({
     if (editor_dormant()) return(NULL)   # edit picker idle — skip the build
     ui_ready()   # re-render once after client-side binding
-    locked    <- is_locked_reactive()
+    locked    <- !can_edit()
+    transfer  <- in_transfer_window()
     status    <- lineup_status()
     complete  <- status$complete
     is_authed <- !is.null(current_user())
     
+    # Transfer budget: in the window the counter is appended to the
+    # status line and an over-budget roster disables Save with the
+    # reason named, exactly as an incomplete roster does pre-lock.
+    usage       <- if (transfer) transfer_usage() else NULL
+    over_budget <- !is.null(usage) && usage$used > usage$max
+    
     label <- if (locked) {
       "Contest locked"
+    } else if (transfer) {
+      "Save transfers"
     } else if (mode == "edit") {
       "Save changes"
     } else if (is_authed) {
@@ -903,20 +947,31 @@ lineup_picker_server_logic <- function(input, output, session,
       "Sign up to submit"
     }
     
-    # Status line: always shows the pick count while unlocked, plus the
+    msg <- status$message
+    if (!is.null(usage)) {
+      msg <- paste0(msg, " \u00b7 Transfers used: ", usage$used, " of ",
+                    usage$max)
+      if (over_budget) {
+        msg <- paste0(msg, " \u2014 undo ", usage$used - usage$max,
+                      " change", if (usage$used - usage$max > 1) "s" else "")
+      }
+    }
+    
+    # Status line: always shows the pick count while editable, plus the
     # first failed rule when incomplete — so a greyed-out button is
     # never unexplained.
     status_div <- if (!locked) {
       div(
         class = paste(
           "submit-status",
-          if (complete) "submit-status-complete" else "submit-status-incomplete"
+          if (complete && !over_budget) "submit-status-complete"
+          else "submit-status-incomplete"
         ),
-        status$message
+        msg
       )
     } else NULL
     
-    btn <- if (complete && !locked) {
+    btn <- if (complete && !locked && !over_budget) {
       actionButton(iid("submit_lineup"), label,
                    class = "btn btn-primary btn-block")
     } else {
@@ -1128,6 +1183,25 @@ lineup_picker_server_logic <- function(input, output, session,
   }
   
   open_save_confirm <- function() {
+    if (isTRUE(isolate(in_transfer_window()))) {
+      u <- isolate(transfer_usage())
+      return(showModal(modalDialog(
+        title = "Save transfers?",
+        tagList(
+          p(sprintf("This uses %d of %d transfers for the window.",
+                    u$used, u$max)),
+          p("Changes take effect from Gameweek 3. Points already scored ",
+            "by outgoing players stand. You can adjust again until the ",
+            "window closes; only your final roster counts.")
+        ),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(iid("confirm_save_lineup"), "Save transfers",
+                       class = "btn btn-primary")
+        ),
+        easyClose = TRUE
+      )))
+    }
     showModal(modalDialog(
       title = "Save changes to this lineup?",
       "Your existing picks will be replaced with the new selection.",
@@ -1168,15 +1242,22 @@ lineup_picker_server_logic <- function(input, output, session,
   observeEvent(input[[iid("submit_lineup")]], {
     message(">>> OBSERVE ", iid("submit_lineup"))
     
+    if (mode == "edit") {
+      # Fresh check: pre-lock, or window open.
+      if (!can_edit_entry()) {
+        message("    !! save blocked by fresh can_edit_entry()")
+        showNotification("Contest is locked and the transfer window is not open.",
+                         type = "error", duration = 8)
+        return()
+      }
+      open_save_confirm()
+      return()
+    }
+    
     if (is_locked()) {
       message("    !! submit blocked by fresh is_locked()")
       showNotification("Contest is locked. No further submissions or changes.",
                        type = "error", duration = 8)
-      return()
-    }
-    
-    if (mode == "edit") {
-      open_save_confirm()
       return()
     }
     
@@ -1266,13 +1347,6 @@ lineup_picker_server_logic <- function(input, output, session,
     message(">>> OBSERVE ", iid("confirm_save_lineup"))
     removeModal()
     
-    if (is_locked()) {
-      message("    !! save blocked by fresh is_locked()")
-      showNotification("Contest is locked. No further submissions or changes.",
-                       type = "error", duration = 8)
-      return()
-    }
-    
     entry_id <- editing_entry_id()
     if (is.null(entry_id)) {
       showNotification("Something went wrong — no entry selected.",
@@ -1282,16 +1356,33 @@ lineup_picker_server_logic <- function(input, output, session,
     
     picks <- selected_players() |> select(player_id, position)
     
+    # Route: pre-lock saves rewrite the entry's picks; post-lock saves are
+    # transfers and must go through apply_transfers(), which fresh-checks
+    # the window itself and hard-stops otherwise. Both fresh-read.
+    locked_now <- is_locked()
     result <- tryCatch({
-      update_entry_picks(entry_id, picks)
-      list(ok = TRUE)
+      if (locked_now) {
+        r <- apply_transfers(entry_id, picks)
+        list(ok = TRUE, transfer = TRUE, n_used = r$n_used, n_max = r$n_max)
+      } else {
+        update_entry_picks(entry_id, picks)
+        list(ok = TRUE, transfer = FALSE)
+      }
     }, error = function(e) {
       message("!!! save failed: ", conditionMessage(e))
       list(ok = FALSE, error = conditionMessage(e))
     })
     
     if (result$ok) {
-      showNotification("Changes saved.", type = "message", duration = 4)
+      if (isTRUE(result$transfer)) {
+        showNotification(
+          sprintf(paste("Transfers saved \u2014 %d of %d used. Your roster at",
+                        "the close of the window is what counts."),
+                  result$n_used, result$n_max),
+          type = "message", duration = 8)
+      } else {
+        showNotification("Changes saved.", type = "message", duration = 4)
+      }
       baseline_ids(selected_ids())
       on_save_success()
     } else {

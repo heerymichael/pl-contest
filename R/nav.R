@@ -221,10 +221,9 @@ rules_view <- function() {
       rules_item("Club clashes.",
                  "If one of your players transfers to a club where you already hold
          a player, your squad would break the max-one-per-club rule. When
-         this happens, the lower-listed of the two players (per the pool's
-         listing order) is automatically dropped and replaced by the next
-         listed player in his position at the club the transferring player
-         left."),
+         this happens, the transferring player is automatically dropped
+         and replaced by the next listed player in his position at the
+         club he left (the pool's listing order: price, then name)."),
       rules_item("Automatic and final.",
                  "Points already scored by the dropped player stand; the replacement
          scores from the substitution onward. These substitutions are
@@ -259,9 +258,16 @@ rules_view <- function() {
          not a free hit."),
       rules_item("Up to two changes.",
                  "You may finish the window with at most two players different from
-         the squad you locked in. Swap a player out and back in again and
-         it costs you nothing — only the difference between your locked
-         squad and your final one counts."),
+         the squad you held when the window opened — that is, your locked
+         squad after any automatic club-clash substitution. Swap a player
+         out and back in again and it costs you nothing; only the
+         difference between that squad and your final one counts."),
+      rules_item("How.",
+                 "Log in, open the lineup from My Lineups and make your changes
+         there. The counter under the squad shows how many of your two
+         transfers you are using. You can save as many times as you like
+         while the window is open; your roster at the close is what
+         counts."),
       rules_item("Like for like.",
                  "Every transfer must be same-position, and the incoming player's
          club must not already be on your roster. Your squad still has to
@@ -271,7 +277,13 @@ rules_view <- function() {
          The incoming player scores from Gameweek 3 onward."),
       rules_item("Use them or lose them.",
                  "Unused transfers expire when the window closes. There are no
-         further transfers for the rest of the contest.")
+         further transfers for the rest of the contest."),
+      rules_item("In the open.",
+                 "Every roster change in the contest — window transfers and
+         automatic substitutions alike — is recorded and visible to all
+         entrants under the Transfers tab of each squad on the
+         leaderboard, so everyone can see the same rules were applied to
+         everyone.")
     ),
     
     # Scoring ----------------------------------------------------------
